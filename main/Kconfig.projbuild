@@ -1,0 +1,52 @@
+menu "Example Configuration"
+
+    config EXAMPLE_AUTHENTICATION_FAILS_MAX_TRIES
+        int "Maximum number of retries when Mender client authentification fails"
+        default 3
+        help
+            Defines the number of retries when the Mender client authentification fails before the artifact is considered invalid and the rollback is done.
+
+endmenu
+
+menu "Mender client Configuration"
+
+    config MENDER_SERVER_HOST
+        string "Mender server host URL"
+        default "https://hosted.mender.io"
+        help
+            Set the Mender server host URL to be used on the device.
+
+    config MENDER_SERVER_TENANT_TOKEN
+        string "Mender server Tenant Token"
+        help
+            Set the Mender server Tenant Token, to be used with https://hosted.mender.io.
+
+    config MENDER_CLIENT_AUTHENTICATION_POLL_INTERVAL
+        int "Mender client Authentication poll interval (seconds)"
+        range 0 3600
+        default 30
+        help
+            Interval used to periodically try to authenticate to the mender server until it succeeds.
+
+    config MENDER_CLIENT_INVENTORY_POLL_INTERVAL
+        int "Mender client Inventory poll interval (seconds)"
+        range 0 86400
+        default 28800
+        help
+            Interval used to periodically send inventory to the mender server.
+
+    config MENDER_CLIENT_UPDATE_POLL_INTERVAL
+        int "Mender client Update poll interval (seconds)"
+        range 0 86400
+        default 1800
+        help
+            Interval used to periodically check for new deployments on the mender server.
+
+    config MENDER_CLIENT_RESTART_POLL_INTERVAL
+        int "Mender client Restart poll interval (seconds)"
+        range 0 3600
+        default 60
+        help
+            Interval used to periodically try to restart the device when an update has been downloaded and installed.
+
+endmenu

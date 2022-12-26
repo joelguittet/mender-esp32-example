@@ -1,0 +1,3 @@
+[submodule "components/mender-mcu-client/mender-mcu-client"]
+	path = components/mender-mcu-client/mender-mcu-client
+	url = git@github.com:joelguittet/mender-mcu-client.git
