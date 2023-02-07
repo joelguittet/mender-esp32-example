@@ -26,7 +26,8 @@ Then open the project with VSCode.
 ### Configuration of the application
 
 The example application should first be configured to set at least:
-- `MENDER_SERVER_TENANT_TOKEN` to set the Tenant Token of your account on "https://hosted.mender.io" server;
+- `CONFIG_MENDER_SERVER_HOST` to set the server host. Default is valid for US `https://hosted.mender.io` and should be changed to `https://eu.hosted.mender.io` for EU/UK
+- `MENDER_SERVER_TENANT_TOKEN` to set the Tenant Token of your account on the server host. This can be found as `Organization Token` in Account->My Organisation on the Mender.io portal.
 - `CONFIG_EXAMPLE_WIFI_SSID` and `CONFIG_EXAMPLE_WIFI_PASSWORD` to connect the device to your own WiFi access point.
 
 You may want to customize few interesting settings:
@@ -52,7 +53,9 @@ E (41910) mender: ../components/mender-mcu-client/mender-mcu-client/src/mender-a
 I (41910) main: Mender client authentication failed (1/3)
 ```
 
-Which means you now have generated authentication keys on the device. Authentication keys are stored in NVS partition of the ESP32. You now have to accept your device on the mender interface. Once it is accepted on the mender interface the following will be displayed:
+Which means you now have generated authentication keys on the device. Authentication keys are stored in NVS partition of the ESP32. You now have to accept your device on the mender interface. If you are not seeing anything on your Mender dashboard make sure you are in the correct domain (US/EU) and have the correct `MENDER_SERVER_HOST` set.
+
+Once it is accepted on the mender interface the following will be displayed:
 
 ```
 I (97707) esp-x509-crt-bundle: Certificate validated
@@ -121,6 +124,8 @@ I (14811) mender: ../components/mender-client/mender-client/src/mender-client.c 
 ```
 
 Congratulation! You have updated the device. Mender server displays the success of the deployment.
+
+If the update is downloaded, verified, applied, and on reset you are still running the old version this might be because you have build with ESP-IDF 5.x SDK which as indicated above is not supported. You need to build with ESP-IDF 4.x SDK
 
 ### Failure or wanted rollback
 
