@@ -104,7 +104,7 @@ static mender_err_t
 restart_cb(void) {
 
     /* Restart */
-    /* Note it is return to not restart the system right now depending of the application */
+    /* Note it is possible to not restart the system right now depending of the application */
     /* In this example, immediate restart is enough */
     ESP_LOGI(TAG, "Restarting system");
     esp_restart();
