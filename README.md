@@ -11,7 +11,7 @@
 
 This project is used with an [ESP32-WROOM-32D](https://www.espressif.com/sites/default/files/documentation/esp32-wroom-32d_esp32-wroom-32u_datasheet_en.pdf) module with 4MB flash. It should be compatible with other ESP32 modules with no modification.
 
-The project is built using ESP-IDF v4.4 framework. There is no other dependencies. Important note: ESP-IDF v5.x is not compatible.
+The project is built using ESP-IDF framework. There is no other dependencies. Important note: the project has been tested with ESP-IDF v4.4.x and v5.0.x successfully. There is no support for older releases.
 
 This project is developed under [VSCode](https://code.visualstudio.com) and using [ESP-IDF Extension](https://github.com/espressif/vscode-esp-idf-extension). If you need support to use the development environnement, you can refer to the "ESP-IDF Extension help" section below.
 
@@ -141,8 +141,6 @@ Using VSCode, first open the directory of the project.
 Then go to Command Palette (Ctrl+Shift+P) and execute the `ESP-IDF: Set Espressif device target` command to select select an Espressif target. Choose `esp32`, then select `Custom board`.
 
 Next execute the `ESP-IDF: SDK Configuration editor` command (Ctrl+E then G) to generate sdkconfig and optionally modify project settings. After all changes are made, click save and close this window.
-
-Configure options of `.vscode/c_cpp_properties.json` if required (`compilerPath` particularly).
 
 Now build the project with the `ESP-IDF: Build your project` command (Ctrl+E then B). Progress is displayed in the terminal.
 
