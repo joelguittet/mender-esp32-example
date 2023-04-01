@@ -30,6 +30,8 @@ on:
       - '**'
   pull_request:
     types: [opened, synchronize, reopened]
+  schedule:
+    - cron: '0 0 1 * *'
 jobs:
   check:
     name: Check code format

@@ -31,8 +31,10 @@
 #include "esp_mac.h"
 #include "esp_ota_ops.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
 #include "freertos/task.h"
 #include "mender-client.h"
+#include "mender-inventory.h"
 #include "mender-ota.h"
 #include "nvs_flash.h"
 #include "protocol_examples_common.h"
@@ -44,18 +46,41 @@
 static const char *TAG = "main";
 
 /**
+ * @brief Mender client events
+ */
+static EventGroupHandle_t mender_client_events;
+#define MENDER_CLIENT_EVENT_RESTART (1 << 0)
+
+/**
  * @brief Authentication success callback
  * @return MENDER_OK if application is marked valid and success deployment status should be reported to the server, error code otherwise
  */
 static mender_err_t
 authentication_success_cb(void) {
 
+    mender_err_t ret;
+
     ESP_LOGI(TAG, "Mender client authenticated");
+
+    /* Activate mender add-ons */
+    /* The application can activate each add-on depending of the current status of the device */
+    /* In this example, add-ons are activated has soon as authentication succeeds */
+#ifdef CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY
+    if (MENDER_OK != (ret = mender_inventory_activate())) {
+        ESP_LOGE(TAG, "Unable to activate inventory add-on");
+        return ret;
+    }
+#endif /* CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY */
 
     /* Validate the image if it is still pending */
     /* Note it is possible to do multiple diagnosic tests before validating the image */
     /* In this example, authentication success with the mender-server is enough */
-    return mender_ota_mark_app_valid_cancel_rollback();
+    if (MENDER_OK != (ret = mender_ota_mark_app_valid_cancel_rollback())) {
+        ESP_LOGE(TAG, "Unable to validate the image");
+        return ret;
+    }
+
+    return ret;
 }
 
 /**
@@ -76,7 +101,10 @@ authentication_failure_cb(void) {
     /* Note it is possible to invalid the image later to permit clean closure before reboot */
     /* In this example, several authentication failures with the mender-server is enough */
     if (tries >= CONFIG_EXAMPLE_AUTHENTICATION_FAILS_MAX_TRIES) {
-        ret = mender_ota_mark_app_invalid_rollback_and_reboot();
+        if (MENDER_OK != (ret = mender_ota_mark_app_invalid_rollback_and_reboot())) {
+            ESP_LOGE(TAG, "Unable to invalidate the image");
+            return ret;
+        }
     }
 
     return ret;
@@ -104,11 +132,8 @@ deployment_status_cb(mender_deployment_status_t status, char *desc) {
 static mender_err_t
 restart_cb(void) {
 
-    /* Restart */
-    /* Note it is possible to not restart the system right now depending of the application */
-    /* In this example, immediate restart is enough */
-    ESP_LOGI(TAG, "Restarting system");
-    esp_restart();
+    /* Application is responsible to shutdown and restart the system now */
+    xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_RESTART);
 
     return MENDER_OK;
 }
@@ -150,7 +175,7 @@ print_stats(void) {
     printf("--------------------------------------------------------\n");
 }
 
-#endif
+#endif /* configUSE_TRACE_FACILITY == 1 */
 
 /**
  * @brief Main function
@@ -171,7 +196,8 @@ app_main(void) {
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
+    /* 
+     * This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
      * Read "Establishing Wi-Fi or Ethernet Connection" section in
      * examples/protocols/README.md for more information about this function.
      */
@@ -182,6 +208,10 @@ app_main(void) {
     char    mac_address[18];
     ESP_ERROR_CHECK(esp_base_mac_addr_get(mac));
     sprintf(mac_address, "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+    /* Create mender-client event group */
+    mender_client_events = xEventGroupCreate();
+    ESP_ERROR_CHECK(NULL == mender_client_events);
 
     /* Retrieve running version of the ESP32 */
     esp_app_desc_t         running_app_info;
@@ -203,9 +233,7 @@ app_main(void) {
                                                     .host                         = CONFIG_MENDER_SERVER_HOST,
                                                     .tenant_token                 = CONFIG_MENDER_SERVER_TENANT_TOKEN,
                                                     .authentication_poll_interval = CONFIG_MENDER_CLIENT_AUTHENTICATION_POLL_INTERVAL,
-                                                    .inventory_poll_interval      = CONFIG_MENDER_CLIENT_INVENTORY_POLL_INTERVAL,
                                                     .update_poll_interval         = CONFIG_MENDER_CLIENT_UPDATE_POLL_INTERVAL,
-                                                    .restart_poll_interval        = CONFIG_MENDER_CLIENT_RESTART_POLL_INTERVAL,
                                                     .recommissioning              = false };
     mender_client_callbacks_t mender_client_callbacks = { .authentication_success = authentication_success_cb,
                                                           .authentication_failure = authentication_failure_cb,
@@ -219,21 +247,48 @@ app_main(void) {
     ESP_ERROR_CHECK(mender_client_init(&mender_client_config, &mender_client_callbacks));
     ESP_LOGI(TAG, "Mender client initialized");
 
+    /* Initialize mender add-ons */
+#ifdef CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY
+    mender_inventory_config_t mender_inventory_config
+        = { .artifact_name = artifact_name, .device_type = device_type, .poll_interval = CONFIG_MENDER_CLIENT_INVENTORY_POLL_INTERVAL };
+    ESP_ERROR_CHECK(mender_inventory_init(&mender_inventory_config));
+    ESP_LOGI(TAG, "Mender inventory initialized");
+#endif /* CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY */
+
+#ifdef CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY
     /* Set mender inventory (this is just an example) */
-    mender_inventory_t inventory[] = { { .name = "latitude", .value = "45.8325" }, { .name = "longitude", .value = "6.864722" } };
-    if (MENDER_OK != mender_client_set_inventory(inventory, sizeof(inventory) / sizeof(inventory[0]))) {
+    mender_inventory_t inventory[]
+        = { { .name = "latitude", .value = "45.8325" }, { .name = "longitude", .value = "6.864722" }, { .name = NULL, .value = NULL } };
+    if (MENDER_OK != mender_inventory_set(inventory)) {
         ESP_LOGE(TAG, "Unable to set mender inventory");
     }
+#endif /* CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY */
 
     /* Infinite loop, print stats periodically */
-    while (1) {
+    EventBits_t event = 0;
+    while (!event) {
 
 #if configUSE_TRACE_FACILITY == 1
         /* Print stats */
         print_stats();
-#endif
+#endif /* configUSE_TRACE_FACILITY == 1 */
 
-        /* Wait before next snapshot */
-        vTaskDelay(10000 / portTICK_PERIOD_MS);
+        /* Wait before next snapshot or the application shutdown */
+        event = xEventGroupWaitBits(mender_client_events, MENDER_CLIENT_EVENT_RESTART, pdTRUE, pdFALSE, 10000 / portTICK_PERIOD_MS);
     }
+
+    /* Release mender add-ons */
+#ifdef CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY
+    mender_inventory_exit();
+#endif /* CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY */
+
+    /* Exit mender-client */
+    mender_client_exit();
+
+    /* Release event group */
+    vEventGroupDelete(mender_client_events);
+
+    /* Restart */
+    ESP_LOGI(TAG, "Restarting system");
+    esp_restart();
 }
