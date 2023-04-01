@@ -23,17 +23,4 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-idf_component_register(
-    SRCS "mender-mcu-client/core/src/mender-api.c"
-         "mender-mcu-client/core/src/mender-client.c"
-         "mender-mcu-client/core/src/mender-untar.c"
-         "mender-mcu-client/core/src/mender-utils.c"
-         "mender-mcu-client/platform/board/esp-idf/src/mender-log.c"
-         "mender-mcu-client/platform/board/esp-idf/src/mender-ota.c"
-         "mender-mcu-client/platform/board/esp-idf/src/mender-storage.c"
-         "mender-mcu-client/platform/http/esp-idf/src/mender-http.c"
-         "mender-mcu-client/platform/rtos/freertos/src/mender-rtos.c"
-         "mender-mcu-client/platform/tls/mbedtls/src/mender-tls.c"
-    INCLUDE_DIRS "mender-mcu-client/include"
-    REQUIRES app_update esp_http_client json mbedtls nvs_flash
-)
+include("${CMAKE_CURRENT_LIST_DIR}/mender-mcu-client/esp-idf/CMakeLists.txt")

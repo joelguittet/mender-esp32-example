@@ -32,34 +32,35 @@ The example application should first be configured to set at least:
 You may want to customize few interesting settings:
 - `MENDER_SERVER_HOST` if using your own Mender server instance. Tenant Token is not required in this case.
 - `MENDER_CLIENT_AUTHENTICATION_POLL_INTERVAL` is the interval to retry authentication on the mender server.
-- `MENDER_CLIENT_INVENTORY_POLL_INTERVAL` is the interval to publish inventory data.
 - `MENDER_CLIENT_UPDATE_POLL_INTERVAL` is the interval to check for new deployments.
+- `MENDER_CLIENT_INVENTORY_POLL_INTERVAL` is the interval to publish inventory data.
 
-Other settings are available in the menuconfig in sections "Example Configuration", "Example Connection Configuration" and "Mender client Configuration". You can also refer to the mender-mcu-client API.
+Other settings are available in the menuconfig in sections "Mender client Configuration", "Example Configuration" and "Example Connection Configuration". You can also refer to the mender-mcu-client API.
 
 ### Execution of the application
 
 After flashing the application on the ESP32 module and displaying logs, you should be able to see the following:
 
 ```
-I (5660) main: Running project 'mender-esp32-example' version '0.1'
-I (5670) mender: ../components/mender-mcu-client/mender-mcu-client/platform/board/esp32/src/mender-storage.c (48): Authentication keys are not available
-I (5680) mender: ../components/mender-mcu-client/mender-mcu-client/src/mender-client.c (193): Generating authentication keys...
-I (38320) mender: ../components/mender-mcu-client/mender-mcu-client/platform/board/esp32/src/mender-storage.c (103): OTA ID or artifact name not available
-I (38320) main: Mender client initialized
-I (40480) esp-x509-crt-bundle: Certificate validated
-E (41910) mender: ../components/mender-mcu-client/mender-mcu-client/src/mender-api.c (626): [401] Unauthorized: unknown error
-I (41910) main: Mender client authentication failed (1/3)
+I (5666) main: Running project 'mender-esp32-example' version '0.1'
+I (5676) mender: ../components/mender-mcu-client/mender-mcu-client/platform/board/esp-idf/src/mender-storage.c (86): Authentication keys are not available
+I (5686) mender: ../components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (330): Generating authentication keys...
+I (5696) main: Mender client initialized
+I (5706) main: Mender inventory initialized
+I (14596) mender: ../components/mender-mcu-client/mender-mcu-client/platform/board/esp-idf/src/mender-storage.c (148): OTA ID or artifact name not available
+I (16666) esp-x509-crt-bundle: Certificate validated
+E (18196) mender: ../components/mender-mcu-client/mender-mcu-client/core/src/mender-api.c (701): [401] Unauthorized: unknown error
+I (18196) main: Mender client authentication failed (1/3)
 ```
 
 Which means you now have generated authentication keys on the device. Authentication keys are stored in NVS partition of the ESP32. You now have to accept your device on the mender interface. Once it is accepted on the mender interface the following will be displayed:
 
 ```
-I (97707) esp-x509-crt-bundle: Certificate validated
-I (99157) main: Mender client authenticated
-I (99657) esp-x509-crt-bundle: Certificate validated
-I (101597) esp-x509-crt-bundle: Certificate validated
-I (102837) mender: ../components/mender-client/mender-client/src/mender-client.c (475): No deployment available
+I (106776) esp-x509-crt-bundle: Certificate validated
+I (108316) main: Mender client authenticated
+I (108826) esp-x509-crt-bundle: Certificate validated
+I (110876) esp-x509-crt-bundle: Certificate validated
+I (112206) mender: ../components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (459): No deployment available
 ```
 
 Congratulation! Your device is connected to the mender server. Device type is `mender-esp32-example` and the current software version is displayed.
@@ -79,45 +80,47 @@ Upload the artifact `mender-esp32-example-v0.2.mender` to the mender server and 
 The device checks for the new deployment, downloads the artifact and installs it on the next ota partition. Then it reboots to apply the update:
 
 ```
-I (189677) esp-x509-crt-bundle: Certificate validated
-I (190917) mender: ../components/mender-client/mender-client/src/mender-client.c (449): Downloading deployment artifact with id 'a95e6a3a-d0f5-4117-b575-118866f423d1', artifact name 'mender-esp32-example-v0.2' and uri 'https://s3.amazonaws.com/hosted-mender-artifacts/637c82337377ce997a5bda18/e1ec39a6-3b4e-47b9-9fe5-e3fcce05a319?X-Amz-Algorithm
-I (191427) esp-x509-crt-bundle: Certificate validated
-I (192857) main: Deployment status is 'downloading'
-I (193357) esp-x509-crt-bundle: Certificate validated
-I (195467) mender: ../components/mender-client/mender-client/platform/board/esp32/src/mender-ota.c (19): Start flashing OTA artifact 'mender-esp32-example.bin' with size 920096
-I (195467) mender: ../components/mender-client/mender-client/platform/board/esp32/src/mender-ota.c (27): Next update partition is 'ota_1', subtype 17 at offset 0x210000 and with size 2031616
-I (253047) esp_image: segment 0: paddr=00210020 vaddr=3f400020 size=2c33ch (181052) map
-I (253107) esp_image: segment 1: paddr=0023c364 vaddr=3ffb0000 size=03bbch ( 15292) 
-I (253117) esp_image: segment 2: paddr=0023ff28 vaddr=40080000 size=000f0h (   240) 
-I (253117) esp_image: segment 3: paddr=00240020 vaddr=400d0020 size=9c69ch (640668) map
-I (253327) esp_image: segment 4: paddr=002dc6c4 vaddr=400800f0 size=1431ch ( 82716) 
-I (253357) esp_image: segment 5: paddr=002f09e8 vaddr=50000000 size=00010h (    16) 
-I (253367) mender: ../components/mender-client/mender-client/src/mender-client.c (455): Download done, installing artifact
-I (253877) esp-x509-crt-bundle: Certificate validated
-I (255317) main: Deployment status is 'installing'
-I (255317) mender: ../components/mender-client/mender-client/platform/board/esp32/src/mender-ota.c (90): Next update partition is 'ota_1', subtype 17 at offset 0x210000 and with size 2031616
-I (255327) esp_image: segment 0: paddr=00210020 vaddr=3f400020 size=2c33ch (181052) map
-I (255397) esp_image: segment 1: paddr=0023c364 vaddr=3ffb0000 size=03bbch ( 15292) 
-I (255407) esp_image: segment 2: paddr=0023ff28 vaddr=40080000 size=000f0h (   240) 
-I (255407) esp_image: segment 3: paddr=00240020 vaddr=400d0020 size=9c69ch (640668) map
-I (255627) esp_image: segment 4: paddr=002dc6c4 vaddr=400800f0 size=1431ch ( 82716) 
-I (255657) esp_image: segment 5: paddr=002f09e8 vaddr=50000000 size=00010h (    16) 
-I (256227) esp-x509-crt-bundle: Certificate validated
-I (257667) main: Deployment status is 'rebooting'
-I (257667) main: Restarting system
+I (288846) esp-x509-crt-bundle: Certificate validated
+I (290886) esp-x509-crt-bundle: Certificate validated
+I (292256) mender: ../components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (471): Downloading deployment artifact with id '28a65724-ad35-439a-b8c2-7a6154258cc9', artifact name 'mender-esp32-example-v0.2' and uri 'https://s3.amazonaws.com/hosted-mender-artifacts/637c82337377ce997a5bda18/e1bfc2c2-764e-44d2-aeb4-f64b1f207429?X-Amz-Algorit
+I (292736) esp-x509-crt-bundle: Certificate validated
+I (294276) main: Deployment status is 'downloading'
+I (294786) esp-x509-crt-bundle: Certificate validated
+I (296756) mender: ../components/mender-mcu-client/mender-mcu-client/platform/board/esp-idf/src/mender-ota.c (38): Start flashing OTA artifact 'mender-esp32-example.bin' with size 925904
+I (296756) mender: ../components/mender-mcu-client/mender-mcu-client/platform/board/esp-idf/src/mender-ota.c (50): Next update partition is 'ota_1', subtype 17 at offset 0x210000 and with size 2031616
+I (356666) esp_image: segment 0: paddr=00210020 vaddr=3f400020 size=2f32ch (193324) map
+I (356726) esp_image: segment 1: paddr=0023f354 vaddr=3ffb0000 size=00cc4h (  3268) 
+I (356736) esp_image: segment 2: paddr=00240020 vaddr=400d0020 size=9a7a4h (632740) map
+I (356946) esp_image: segment 3: paddr=002da7cc vaddr=3ffb0cc4 size=02b94h ( 11156) 
+I (356946) esp_image: segment 4: paddr=002dd368 vaddr=40080000 size=14d28h ( 85288) 
+I (356976) esp_image: segment 5: paddr=002f2098 vaddr=50000000 size=00010h (    16) 
+I (356986) mender: ../components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (480): Download done, installing artifact
+I (357456) esp-x509-crt-bundle: Certificate validated
+I (358986) main: Deployment status is 'installing'
+I (358996) mender: ../components/mender-mcu-client/mender-mcu-client/platform/board/esp-idf/src/mender-ota.c (121): Next update partition is 'ota_1', subtype 17 at offset 0x210000 and with size 2031616
+I (359006) esp_image: segment 0: paddr=00210020 vaddr=3f400020 size=2f32ch (193324) map
+I (359076) esp_image: segment 1: paddr=0023f354 vaddr=3ffb0000 size=00cc4h (  3268) 
+I (359086) esp_image: segment 2: paddr=00240020 vaddr=400d0020 size=9a7a4h (632740) map
+I (359296) esp_image: segment 3: paddr=002da7cc vaddr=3ffb0cc4 size=02b94h ( 11156) 
+I (359296) esp_image: segment 4: paddr=002dd368 vaddr=40080000 size=14d28h ( 85288) 
+I (359326) esp_image: segment 5: paddr=002f2098 vaddr=50000000 size=00010h (    16) 
+I (359906) esp-x509-crt-bundle: Certificate validated
+I (361246) main: Deployment status is 'rebooting'
+I (361256) main: Restarting system
 
 ...
 
-I (5701) main: Running project 'mender-esp32-example' version '0.2'
-I (5721) main: Mender client initialized
-I (7751) esp-x509-crt-bundle: Certificate validated
-I (9181) main: Mender client authenticated
-I (9251) mender: ../components/mender-client/mender-client/platform/board/esp32/src/mender-ota.c (117): Application has been mark valid and rollback canceled
-I (9691) esp-x509-crt-bundle: Certificate validated
-I (11121) main: Deployment status is 'success'
-I (11641) esp-x509-crt-bundle: Certificate validated
-I (13571) esp-x509-crt-bundle: Certificate validated
-I (14811) mender: ../components/mender-client/mender-client/src/mender-client.c (493): No deployment available
+I (5724) main: Running project 'mender-esp32-example' version '0.2'
+I (5744) main: Mender client initialized
+I (5744) main: Mender inventory initialized
+I (7804) esp-x509-crt-bundle: Certificate validated
+I (9184) main: Mender client authenticated
+I (9254) mender: ../components/mender-mcu-client/mender-mcu-client/platform/board/esp-idf/src/mender-ota.c (149): Application has been mark valid and rollback canceled
+I (9694) esp-x509-crt-bundle: Certificate validated
+I (11024) main: Deployment status is 'success'
+I (11534) esp-x509-crt-bundle: Certificate validated
+I (13374) esp-x509-crt-bundle: Certificate validated
+I (14504) mender: ../components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (459): No deployment available
 ```
 
 Congratulation! You have updated the device. Mender server displays the success of the deployment.
