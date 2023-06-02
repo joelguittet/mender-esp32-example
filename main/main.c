@@ -196,7 +196,9 @@ print_stats(void) {
         printf("Task Name       | Stack High Water Mark\n");
         printf("--------------------------------------------------------\n");
         for (UBaseType_t index = 0; index < uxArraySize; index++) {
-            printf("%15s | %u bytes\n", pxTaskStatusArray[index].pcTaskName, pxTaskStatusArray[index].usStackHighWaterMark * sizeof(configSTACK_DEPTH_TYPE));
+            printf("%15s | %u bytes\n",
+                   pxTaskStatusArray[index].pcTaskName,
+                   (unsigned int)pxTaskStatusArray[index].usStackHighWaterMark * sizeof(configSTACK_DEPTH_TYPE));
         }
 
         /* Release memory */
@@ -205,8 +207,8 @@ print_stats(void) {
 
     /* Print usage of the heap */
     printf("--------------------------------------------------------\n");
-    printf("Free Heap Size: %u bytes\n", xPortGetFreeHeapSize());
-    printf("Minimum Ever Free Heap Size: %u bytes\n", xPortGetMinimumEverFreeHeapSize());
+    printf("Free Heap Size: %u bytes\n", (unsigned int)xPortGetFreeHeapSize());
+    printf("Minimum Ever Free Heap Size: %u bytes\n", (unsigned int)xPortGetMinimumEverFreeHeapSize());
     printf("--------------------------------------------------------\n");
 }
 
