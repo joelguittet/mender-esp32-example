@@ -77,7 +77,7 @@ Congratulation! Your device is connected to the mender server. Device type is `m
 
 First retrieve [mender-artifact](https://docs.mender.io/downloads#mender-artifact) tool.
 
-Change VERSION to `0.2` and rebuild the firmware. Then create a new artifact using the following command line:
+Change `VERSION.txt` file to `0.2` and rebuild the firmware. Then create a new artifact using the following command line:
 
 ```
 ./mender-artifact write rootfs-image --compression none --device-type mender-esp32-example --artifact-name mender-esp32-example-v0.2 --output-path build/mender-esp32-example-v0.2.mender --file build/mender-esp32-example.bin
