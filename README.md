@@ -36,13 +36,20 @@ You may want to customize few interesting settings:
 - `MENDER_CLIENT_INVENTORY_REFRESH_INTERVAL` is the interval to publish inventory data.
 - `MENDER_CLIENT_CONFIGURE_REFRESH_INTERVAL` is the interval to refresh device configuration.
 
-Other settings are available in the menuconfig in sections "Mender client Configuration", "Example Configuration" and "Example Connection Configuration". You can also refer to the mender-mcu-client API.
+Other settings are available in the menuconfig in sections "Mender General Options", "Mender Addons Options", "Mender Network Options", "Mender Scheduler Options", "Example Configuration" and "Example Connection Configuration". You can also refer to the mender-mcu-client API and configuration keys.
+
+Particularly, it is possible to activate the Device Troubleshoot add-on that will permit to display the logs of the ESP32 directly on the Mender interface as shown on the following screenshot.
+
+![Troubleshoot console](https://raw.githubusercontent.com/joelguittet/mender-esp32-example/master/.github/docs/troubleshoot.png)
+
+Note this also constraints to download [esp_websocket_client](https://components.espressif.com/components/espressif/esp_websocket_client) in vscode, which is compatible with ESP-IDF v5.0 and later only.
 
 ### Execution of the application
 
 After flashing the application on the ESP32 module and displaying logs, you should be able to see the following:
 
 ```
+I (5656) main: MAC address of the device '7c:9e:bd:ed:bc:1c'
 I (5666) main: Running project 'mender-esp32-example' version '0.1'
 I (5676) mender: ../components/mender-mcu-client/mender-mcu-client/platform/board/esp-idf/src/mender-storage.c (90): Authentication keys are not available
 I (5686) mender: ../components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (344): Generating authentication keys...
@@ -120,6 +127,7 @@ I (460916) main: Restarting system
 
 ...
 
+I (5713) main: MAC address of the device '7c:9e:bd:ed:bc:1c'
 I (5723) main: Running project 'mender-esp32-example' version '0.2'
 I (5803) main: Mender client initialized
 I (5803) mender: ../components/mender-mcu-client/mender-mcu-client/platform/board/esp-idf/src/mender-storage.c (242): Device configuration not available
