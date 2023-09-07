@@ -37,6 +37,7 @@
 #include "mender-configure.h"
 #include "mender-inventory.h"
 #include "mender-ota.h"
+#include "mender-troubleshoot.h"
 #include <nvs_flash.h>
 #include <protocol_examples_common.h>
 #include "sdkconfig.h"
@@ -78,6 +79,12 @@ authentication_success_cb(void) {
         return ret;
     }
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY */
+#ifdef CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT
+    if (MENDER_OK != (ret = mender_troubleshoot_activate())) {
+        ESP_LOGE(TAG, "Unable to activate troubleshoot add-on");
+        return ret;
+    }
+#endif /* CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT */
 
     /* Validate the image if it is still pending */
     /* Note it is possible to do multiple diagnosic tests before validating the image */
@@ -154,7 +161,7 @@ restart_cb(void) {
  * @return MENDER_OK if the function succeeds, error code otherwise
  */
 static mender_err_t
-config_updated(mender_keystore_t *configuration) {
+config_updated_cb(mender_keystore_t *configuration) {
 
     /* Application can use the new device configuration now */
     /* In this example, we just print the content of the configuration received from the Mender server */
@@ -172,6 +179,143 @@ config_updated(mender_keystore_t *configuration) {
 
 #endif /* CONFIG_MENDER_CLIENT_CONFIGURE_STORAGE */
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_CONFIGURE */
+
+#ifdef CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT
+
+/**
+ * @brief Shell vprintf function used to route logs
+ * @param format Log format string
+ * @param args Log arguments list
+ * @return Length of the log
+ */
+static int
+shell_vprintf(const char *format, va_list args) {
+
+    assert(NULL != format);
+    char *buffer, *tmp;
+    char  data[256];
+    int   length;
+
+    /* Format the log */
+    length = vsnprintf(data, sizeof(data), format, args);
+    if (length > sizeof(data) - 1) {
+        data[sizeof(data) - 1] = '\0';
+    }
+
+    /* Ensure new line is "\r\n" to have a proper display of the data in the shell */
+    if (NULL == (buffer = strndup(data, length))) {
+        goto END;
+    }
+    if (NULL == (tmp = mender_utils_str_replace(buffer, "\r|\n", "\r\n"))) {
+        goto END;
+    }
+    buffer = tmp;
+
+    /* Print log on the shell */
+    mender_troubleshoot_shell_print((uint8_t *)buffer, strlen(buffer));
+
+END:
+
+    /* Release memory */
+    if (NULL != buffer) {
+        free(buffer);
+    }
+
+    return length;
+}
+
+/**
+ * @brief Shell begin callback
+ * @param terminal_width Terminal width
+ * @param terminal_height Terminal height
+ * @return MENDER_OK if the function succeeds, error code otherwise
+ */
+static mender_err_t
+shell_begin_cb(uint16_t terminal_width, uint16_t terminal_height) {
+
+    /* Shell is connected, print terminal size */
+    ESP_LOGI(TAG, "Shell connected with width=%d and height=%d", terminal_width, terminal_height);
+
+    /* Route logs (ESP_LOGx) to the shell */
+    esp_log_set_vprintf(shell_vprintf);
+
+    return MENDER_OK;
+}
+
+/**
+ * @brief Shell resize callback
+ * @param terminal_width Terminal width
+ * @param terminal_height Terminal height
+ * @return MENDER_OK if the function succeeds, error code otherwise
+ */
+static mender_err_t
+shell_resize_cb(uint16_t terminal_width, uint16_t terminal_height) {
+
+    /* Just print terminal size */
+    ESP_LOGI(TAG, "Shell resized with width=%d and height=%d", terminal_width, terminal_height);
+
+    return MENDER_OK;
+}
+
+/**
+ * @brief Shell write data callback
+ * @param data Shell data received
+ * @param length Length of the data received
+ * @return MENDER_OK if the function succeeds, error code otherwise
+ */
+static mender_err_t
+shell_write_cb(uint8_t *data, size_t length) {
+
+    mender_err_t ret = MENDER_OK;
+    char *       buffer, *tmp;
+
+    /* Ensure new line is "\r\n" to have a proper display of the data in the shell */
+    if (NULL == (buffer = strndup((char *)data, length))) {
+        ESP_LOGE(TAG, "Unable to allocate memory");
+        ret = MENDER_FAIL;
+        goto END;
+    }
+    if (NULL == (tmp = mender_utils_str_replace(buffer, "\r|\n", "\r\n"))) {
+        ESP_LOGE(TAG, "Unable to allocate memory");
+        ret = MENDER_FAIL;
+        goto END;
+    }
+    buffer = tmp;
+
+    /* Send back the data received */
+    if (MENDER_OK != (ret = mender_troubleshoot_shell_print((uint8_t *)buffer, strlen(buffer)))) {
+        ESP_LOGE(TAG, "Unable to print data to the sehll");
+        ret = MENDER_FAIL;
+        goto END;
+    }
+
+END:
+
+    /* Release memory */
+    if (NULL != buffer) {
+        free(buffer);
+    }
+
+    return ret;
+}
+
+/**
+ * @brief Shell end callback
+ * @return MENDER_OK if the function succeeds, error code otherwise
+ */
+static mender_err_t
+shell_end_cb(void) {
+
+    /* Route logs back to the UART port */
+    esp_log_set_vprintf(vprintf);
+
+    /* Shell has been disconnected */
+    ESP_LOGI(TAG, "Shell disconnected");
+
+    return MENDER_OK;
+}
+
+#endif /* CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT */
 
 #if configUSE_TRACE_FACILITY == 1
 
@@ -240,17 +384,18 @@ app_main(void) {
      */
     ESP_ERROR_CHECK(example_connect());
 
-    /* Read base MAC address of the ESP32 */
+    /* Read base MAC address of the device */
     uint8_t mac[6];
     char    mac_address[18];
     ESP_ERROR_CHECK(esp_base_mac_addr_get(mac));
     sprintf(mac_address, "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    ESP_LOGI(TAG, "MAC address of the device '%s'", mac_address);
 
     /* Create mender-client event group */
     mender_client_events = xEventGroupCreate();
     ESP_ERROR_CHECK(NULL == mender_client_events);
 
-    /* Retrieve running version of the ESP32 */
+    /* Retrieve running version of the device */
     esp_app_desc_t         running_app_info;
     const esp_partition_t *running = esp_ota_get_running_partition();
     ESP_ERROR_CHECK(esp_ota_get_partition_description(running, &running_app_info));
@@ -289,7 +434,7 @@ app_main(void) {
     mender_configure_config_t    mender_configure_config    = { .refresh_interval = 0 };
     mender_configure_callbacks_t mender_configure_callbacks = {
 #ifndef CONFIG_MENDER_CLIENT_CONFIGURE_STORAGE
-        .config_updated = config_updated,
+        .config_updated = config_updated_cb,
 #endif /* CONFIG_MENDER_CLIENT_CONFIGURE_STORAGE */
     };
     ESP_ERROR_CHECK(mender_configure_init(&mender_configure_config, &mender_configure_callbacks));
@@ -300,6 +445,13 @@ app_main(void) {
     ESP_ERROR_CHECK(mender_inventory_init(&mender_inventory_config));
     ESP_LOGI(TAG, "Mender inventory initialized");
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY */
+#ifdef CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT
+    mender_troubleshoot_config_t    mender_troubleshoot_config = { .healthcheck_interval = 0 };
+    mender_troubleshoot_callbacks_t mender_troubleshoot_callbacks
+        = { .shell_begin = shell_begin_cb, .shell_resize = shell_resize_cb, .shell_write = shell_write_cb, .shell_end = shell_end_cb };
+    ESP_ERROR_CHECK(mender_troubleshoot_init(&mender_troubleshoot_config, &mender_troubleshoot_callbacks));
+    ESP_LOGI(TAG, "Mender troubleshoot initialized");
+#endif /* CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT */
 
 #ifdef CONFIG_MENDER_CLIENT_ADD_ON_CONFIGURE
     /* Get mender configuration (this is just an example to illustrate the API) */
@@ -339,7 +491,15 @@ app_main(void) {
         event = xEventGroupWaitBits(mender_client_events, MENDER_CLIENT_EVENT_RESTART, pdTRUE, pdFALSE, 10000 / portTICK_PERIOD_MS);
     }
 
+    /* Deactivate mender add-ons */
+#ifdef CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT
+    mender_troubleshoot_deactivate();
+#endif /* CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT */
+
     /* Release mender add-ons */
+#ifdef CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT
+    mender_troubleshoot_exit();
+#endif /* CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT */
 #ifdef CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY
     mender_inventory_exit();
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY */

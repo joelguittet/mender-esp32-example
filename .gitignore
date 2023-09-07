@@ -1,5 +1,8 @@
 .vscode
 build
+dependencies.lock
+main/idf_component.yml
+managed_components
 sdkconfig
 sdkconfig.ci
 sdkconfig.old

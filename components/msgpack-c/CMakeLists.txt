@@ -1,5 +1,5 @@
-# @file      sdkconfig.defaults
-# @brief     sdkconfig defaults
+# @file      CMakeLists.txt
+# @brief     msgpack-c component CMakeLists file
 #
 # MIT License
 #
@@ -23,19 +23,24 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
-# CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK is not set
-# CONFIG_ESPTOOLPY_FLASHSIZE_2MB is not set
-CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
-CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
-# CONFIG_PARTITION_TABLE_SINGLE_APP is not set
-CONFIG_PARTITION_TABLE_CUSTOM=y
-CONFIG_MENDER_CLIENT_ADD_ON_CONFIGURE=y
-CONFIG_ESP_MAIN_TASK_STACK_SIZE=4096
-CONFIG_ESP_TASK_WDT_TIMEOUT_S=60
-CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH=3072
-CONFIG_WS_BUFFER_SIZE=4096
-CONFIG_APP_ROLLBACK_ENABLE=y
-# CONFIG_APP_ANTI_ROLLBACK is not set
-CONFIG_TASK_WDT_TIMEOUT_S=60
-CONFIG_TIMER_TASK_STACK_DEPTH=3072
+# List of sources
+list(APPEND srcs
+    "${CMAKE_CURRENT_LIST_DIR}/msgpack-c/src/objectc.c"
+    "${CMAKE_CURRENT_LIST_DIR}/msgpack-c/src/unpack.c"
+    "${CMAKE_CURRENT_LIST_DIR}/msgpack-c/src/version.c"
+    "${CMAKE_CURRENT_LIST_DIR}/msgpack-c/src/vrefbuffer.c"
+    "${CMAKE_CURRENT_LIST_DIR}/msgpack-c/src/zone.c"
+)
+
+# List of includes
+list(APPEND includes
+    "${CMAKE_CURRENT_LIST_DIR}/include"
+    "${CMAKE_CURRENT_LIST_DIR}/include/msgpack"
+    "${CMAKE_CURRENT_LIST_DIR}/msgpack-c/include"
+)
+
+# Register msgpack-c component
+idf_component_register(
+    SRCS ${srcs}
+    INCLUDE_DIRS ${includes}
+)
