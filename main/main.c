@@ -415,15 +415,10 @@ app_main(void) {
                                                     .authentication_poll_interval = 0,
                                                     .update_poll_interval         = 0,
                                                     .recommissioning              = false };
-    mender_client_callbacks_t mender_client_callbacks = { .authentication_success  = authentication_success_cb,
-                                                          .authentication_failure  = authentication_failure_cb,
-                                                          .deployment_status       = deployment_status_cb,
-                                                          .flash.open              = mender_flash_open,
-                                                          .flash.write             = mender_flash_write,
-                                                          .flash.close             = mender_flash_close,
-                                                          .flash.set_pending_image = mender_flash_set_pending_image,
-                                                          .flash.abort_deployment  = mender_flash_abort_deployment,
-                                                          .restart                 = restart_cb };
+    mender_client_callbacks_t mender_client_callbacks = { .authentication_success = authentication_success_cb,
+                                                          .authentication_failure = authentication_failure_cb,
+                                                          .deployment_status      = deployment_status_cb,
+                                                          .restart                = restart_cb };
     ESP_ERROR_CHECK(mender_client_init(&mender_client_config, &mender_client_callbacks));
     ESP_LOGI(TAG, "Mender client initialized");
 
