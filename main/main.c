@@ -315,47 +315,6 @@ shell_end_cb(void) {
 
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT */
 
-#if configUSE_TRACE_FACILITY == 1
-
-/**
- * @brief Print FreeRTOS stats
- */
-static void
-print_stats(void) {
-
-    /* Take a snapshot of the number of tasks in case it changes while this function is executing */
-    volatile UBaseType_t uxArraySize = uxTaskGetNumberOfTasks();
-
-    /* Allocate a TaskStatus_t structure for each task */
-    TaskStatus_t *pxTaskStatusArray = pvPortMalloc(uxArraySize * sizeof(TaskStatus_t));
-    if (NULL != pxTaskStatusArray) {
-
-        /* Generate raw status information about each task */
-        uxArraySize = uxTaskGetSystemState(pxTaskStatusArray, uxArraySize, NULL);
-
-        /* For each populated position in the pxTaskStatusArray array, format the raw data as human readable ASCII data */
-        printf("--------------------------------------------------------\n");
-        printf("Task Name       | Stack High Water Mark\n");
-        printf("--------------------------------------------------------\n");
-        for (UBaseType_t index = 0; index < uxArraySize; index++) {
-            printf("%15s | %u bytes\n",
-                   pxTaskStatusArray[index].pcTaskName,
-                   (unsigned int)pxTaskStatusArray[index].usStackHighWaterMark * sizeof(configSTACK_DEPTH_TYPE));
-        }
-
-        /* Release memory */
-        vPortFree(pxTaskStatusArray);
-    }
-
-    /* Print usage of the heap */
-    printf("--------------------------------------------------------\n");
-    printf("Free Heap Size: %u bytes\n", (unsigned int)xPortGetFreeHeapSize());
-    printf("Minimum Ever Free Heap Size: %u bytes\n", (unsigned int)xPortGetMinimumEverFreeHeapSize());
-    printf("--------------------------------------------------------\n");
-}
-
-#endif /* configUSE_TRACE_FACILITY == 1 */
-
 /**
  * @brief Main function
  */
@@ -474,18 +433,8 @@ app_main(void) {
     }
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY */
 
-    /* Infinite loop, print stats periodically */
-    EventBits_t event = 0;
-    while (!event) {
-
-#if configUSE_TRACE_FACILITY == 1
-        /* Print stats */
-        print_stats();
-#endif /* configUSE_TRACE_FACILITY == 1 */
-
-        /* Wait before next snapshot or the application shutdown */
-        event = xEventGroupWaitBits(mender_client_events, MENDER_CLIENT_EVENT_RESTART, pdTRUE, pdFALSE, 10000 / portTICK_PERIOD_MS);
-    }
+    /* Wait for mender-mcu-client events */
+    xEventGroupWaitBits(mender_client_events, MENDER_CLIENT_EVENT_RESTART, pdTRUE, pdFALSE, portMAX_DELAY);
 
     /* Deactivate mender add-ons */
 #ifdef CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT
