@@ -13,7 +13,7 @@ This project is used with an [ESP32-WROOM-32D](https://www.espressif.com/sites/d
 
 The project is built using ESP-IDF framework. There is no other dependencies. Important note: the project has been tested with ESP-IDF v4.4.x and v5.0.x successfully. There is no support for older releases.
 
-This project is developed under [VSCode](https://code.visualstudio.com) and using [ESP-IDF Extension](https://github.com/espressif/vscode-esp-idf-extension). If you need support to use the development environnement, you can refer to the "ESP-IDF Extension help" section below.
+This project is developed under [VSCode](https://code.visualstudio.com) and using [ESP-IDF Extension](https://github.com/espressif/vscode-esp-idf-extension). If you need support to use the development environment, you can refer to the "ESP-IDF Extension help" section below.
 
 To start using Mender, we recommend that you begin with the Getting started section in [the Mender documentation](https://docs.mender.io/).
 
