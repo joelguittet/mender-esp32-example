@@ -345,7 +345,7 @@ app_main(void) {
     uint8_t mac[6];
     char    mac_address[18];
     ESP_ERROR_CHECK(esp_base_mac_addr_get(mac));
-    sprintf(mac_address, "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    snprintf(mac_address, sizeof(mac_address), "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     ESP_LOGI(TAG, "MAC address of the device '%s'", mac_address);
 
     /* Create mender-client event group */
@@ -360,7 +360,7 @@ app_main(void) {
 
     /* Compute artifact name */
     char artifact_name[128];
-    sprintf(artifact_name, "%s-v%s", running_app_info.project_name, running_app_info.version);
+    snprintf(artifact_name, sizeof(artifact_name), "%s-v%s", running_app_info.project_name, running_app_info.version);
 
     /* Retrieve device type */
     char *device_type = running_app_info.project_name;
