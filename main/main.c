@@ -55,6 +55,49 @@ static EventGroupHandle_t mender_client_events;
 #define MENDER_CLIENT_EVENT_RESTART (1 << 0)
 
 /**
+ * @brief Network connnect callback
+ * @return MENDER_OK if network is connected following the request, error code otherwise
+ */
+static mender_err_t
+network_connect_cb(void) {
+
+    ESP_LOGI(TAG, "Mender client connect network");
+
+    /* This callback can be used to configure network connection */
+    /* Note that the application can connect the network before if required */
+    /* This callback only indicates the mender-client requests network access now */
+    /* In this example this helper function configures Wi-Fi or Ethernet, as selected in menuconfig */
+    /* Read "Establishing Wi-Fi or Ethernet Connection" section in examples/protocols/README.md for more information */
+    if (ESP_OK != example_connect()) {
+        ESP_LOGE(TAG, "Unable to connect network");
+        return MENDER_FAIL;
+    }
+
+    return MENDER_OK;
+}
+
+/**
+ * @brief Network release callback
+ * @return MENDER_OK if network is released following the request, error code otherwise
+ */
+static mender_err_t
+network_release_cb(void) {
+
+    ESP_LOGI(TAG, "Mender client released network");
+
+    /* This callback can be used to release network connection */
+    /* Note that the application can keep network activated if required */
+    /* This callback only indicates the mender-client doesn't request network access now */
+    /* in this example this helper function disconnects the network */
+    if (ESP_OK != example_disconnect()) {
+        ESP_LOGE(TAG, "Unable to disconnect network");
+        return MENDER_FAIL;
+    }
+
+    return MENDER_OK;
+}
+
+/**
  * @brief Authentication success callback
  * @return MENDER_OK if application is marked valid and success deployment status should be reported to the server, error code otherwise
  */
@@ -420,18 +463,11 @@ app_main(void) {
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    /*
-     * This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
-     * Read "Establishing Wi-Fi or Ethernet Connection" section in
-     * examples/protocols/README.md for more information about this function.
-     */
-    ESP_ERROR_CHECK(example_connect());
-
     /* Read base MAC address of the device */
     uint8_t mac[6];
     char    mac_address[18];
-    ESP_ERROR_CHECK(esp_base_mac_addr_get(mac));
-    snprintf(mac_address, sizeof(mac_address), "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    ESP_ERROR_CHECK(esp_read_mac(mac, ESP_MAC_WIFI_STA));
+    sprintf(mac_address, "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     ESP_LOGI(TAG, "MAC address of the device '%s'", mac_address);
 
     /* Create mender-client event group */
@@ -446,7 +482,7 @@ app_main(void) {
 
     /* Compute artifact name */
     char artifact_name[128];
-    snprintf(artifact_name, sizeof(artifact_name), "%s-v%s", running_app_info.project_name, running_app_info.version);
+    sprintf(artifact_name, "%s-v%s", running_app_info.project_name, running_app_info.version);
 
     /* Retrieve device type */
     char *device_type = running_app_info.project_name;
@@ -461,7 +497,9 @@ app_main(void) {
                                                     .authentication_poll_interval = 0,
                                                     .update_poll_interval         = 0,
                                                     .recommissioning              = false };
-    mender_client_callbacks_t mender_client_callbacks = { .authentication_success = authentication_success_cb,
+    mender_client_callbacks_t mender_client_callbacks = { .network_connect        = network_connect_cb,
+                                                          .network_release        = network_release_cb,
+                                                          .authentication_success = authentication_success_cb,
                                                           .authentication_failure = authentication_failure_cb,
                                                           .deployment_status      = deployment_status_cb,
                                                           .restart                = restart_cb };
