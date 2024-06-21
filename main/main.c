@@ -65,22 +65,8 @@ authentication_success_cb(void) {
 
     ESP_LOGI(TAG, "Mender client authenticated");
 
-    /* Activate mender add-ons */
-    /* The application can activate each add-on depending of the current status of the device */
-    /* In this example, add-ons are activated has soon as authentication succeeds */
-#ifdef CONFIG_MENDER_CLIENT_ADD_ON_CONFIGURE
-    if (MENDER_OK != (ret = mender_configure_activate())) {
-        ESP_LOGE(TAG, "Unable to activate configure add-on");
-        return ret;
-    }
-#endif /* CONFIG_MENDER_CLIENT_ADD_ON_CONFIGURE */
-#ifdef CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY
-    if (MENDER_OK != (ret = mender_inventory_activate())) {
-        ESP_LOGE(TAG, "Unable to activate inventory add-on");
-        return ret;
-    }
-#endif /* CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY */
 #ifdef CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT
+    /* Activate troubleshoot add-on (deactivated by default) */
     if (MENDER_OK != (ret = mender_troubleshoot_activate())) {
         ESP_LOGE(TAG, "Unable to activate troubleshoot add-on");
         return ret;
@@ -109,7 +95,7 @@ authentication_failure_cb(void) {
 
     /* Check if confirmation of the image is still pending */
     if (true == mender_flash_is_image_confirmed()) {
-        ESP_LOGE(TAG, "Mender client authentication failed");
+        ESP_LOGI(TAG, "Mender client authentication failed");
         return MENDER_OK;
     }
 
@@ -490,20 +476,22 @@ app_main(void) {
         .config_updated = config_updated_cb,
 #endif /* CONFIG_MENDER_CLIENT_CONFIGURE_STORAGE */
     };
-    ESP_ERROR_CHECK(mender_configure_init(&mender_configure_config, &mender_configure_callbacks));
-    ESP_LOGI(TAG, "Mender configure initialized");
+    ESP_ERROR_CHECK(mender_client_register_addon(
+        (mender_addon_instance_t *)&mender_configure_addon_instance, (void *)&mender_configure_config, (void *)&mender_configure_callbacks));
+    ESP_LOGI(TAG, "Mender configure add-on registered");
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_CONFIGURE */
 #ifdef CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY
     mender_inventory_config_t mender_inventory_config = { .refresh_interval = 0 };
-    ESP_ERROR_CHECK(mender_inventory_init(&mender_inventory_config));
-    ESP_LOGI(TAG, "Mender inventory initialized");
+    ESP_ERROR_CHECK(mender_client_register_addon((mender_addon_instance_t *)&mender_inventory_addon_instance, (void *)&mender_inventory_config, NULL));
+    ESP_LOGI(TAG, "Mender inventory add-on registered");
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY */
 #ifdef CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT
     mender_troubleshoot_config_t    mender_troubleshoot_config = { .healthcheck_interval = 0 };
     mender_troubleshoot_callbacks_t mender_troubleshoot_callbacks
         = { .shell_begin = shell_begin_cb, .shell_resize = shell_resize_cb, .shell_write = shell_write_cb, .shell_end = shell_end_cb };
-    ESP_ERROR_CHECK(mender_troubleshoot_init(&mender_troubleshoot_config, &mender_troubleshoot_callbacks));
-    ESP_LOGI(TAG, "Mender troubleshoot initialized");
+    ESP_ERROR_CHECK(mender_client_register_addon(
+        (mender_addon_instance_t *)&mender_troubleshoot_addon_instance, (void *)&mender_troubleshoot_config, (void *)&mender_troubleshoot_callbacks));
+    ESP_LOGI(TAG, "Mender troubleshoot add-on registered");
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT */
 
 #ifdef CONFIG_MENDER_CLIENT_ADD_ON_CONFIGURE
@@ -534,26 +522,19 @@ app_main(void) {
     }
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY */
 
+    /* Finally activate mender client */
+    if (MENDER_OK != mender_client_activate()) {
+        ESP_LOGE(TAG, "Unable to activate mender-client");
+        goto RELEASE;
+    }
+
     /* Wait for mender-mcu-client events */
     xEventGroupWaitBits(mender_client_events, MENDER_CLIENT_EVENT_RESTART, pdTRUE, pdFALSE, portMAX_DELAY);
 
-    /* Deactivate mender add-ons */
-#ifdef CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT
-    mender_troubleshoot_deactivate();
-#endif /* CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT */
+RELEASE:
 
-    /* Release mender add-ons */
-#ifdef CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT
-    mender_troubleshoot_exit();
-#endif /* CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT */
-#ifdef CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY
-    mender_inventory_exit();
-#endif /* CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY */
-#ifdef CONFIG_MENDER_CLIENT_ADD_ON_CONFIGURE
-    mender_configure_exit();
-#endif /* CONFIG_MENDER_CLIENT_ADD_ON_CONFIGURE */
-
-    /* Exit mender-client */
+    /* Deactivate and release mender-client */
+    mender_client_deactivate();
     mender_client_exit();
 
     /* Release event group */
