@@ -19,6 +19,11 @@
 
 #include <stdio.h>
 #include <esp_event.h>
+#ifdef CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT
+#ifdef CONFIG_MENDER_CLIENT_TROUBLESHOOT_FILE_TRANSFER
+#include <esp_littlefs.h>
+#endif /* CONFIG_MENDER_CLIENT_TROUBLESHOOT_FILE_TRANSFER */
+#endif /* CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT */
 #include <esp_log.h>
 #include <esp_mac.h>
 #include <esp_ota_ops.h>
@@ -33,7 +38,9 @@
 #include <nvs_flash.h>
 #include <protocol_examples_common.h>
 #include <regex.h>
+#include <sys/stat.h>
 #include "sdkconfig.h"
+#include <time.h>
 
 /**
  * @brief Tag used for logging
@@ -201,6 +208,129 @@ config_updated_cb(mender_keystore_t *configuration) {
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_CONFIGURE */
 
 #ifdef CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT
+#ifdef CONFIG_MENDER_CLIENT_TROUBLESHOOT_FILE_TRANSFER
+
+static mender_err_t
+file_transfer_stat_cb(char *path, size_t **size, uint32_t **uid, uint32_t **gid, uint32_t **mode, time_t **time) {
+
+    assert(NULL != path);
+    struct stat  stats;
+    mender_err_t ret = MENDER_OK;
+
+    /* Get statistics of file */
+    if (0 != stat(path, &stats)) {
+        ESP_LOGE(TAG, "Unable to get statistics of file '%s'", path);
+        ret = MENDER_FAIL;
+        goto FAIL;
+    }
+    /* Size is optional */
+    if (NULL != size) {
+        if (NULL == (*size = (size_t *)malloc(sizeof(size_t)))) {
+            ESP_LOGE(TAG, "Unable to allocate memory");
+            ret = MENDER_FAIL;
+            goto FAIL;
+        }
+        **size = stats.st_size;
+    }
+    /* UID and GID are optional */
+    if (NULL != uid) {
+        if (NULL == (*uid = (uint32_t *)malloc(sizeof(uint32_t)))) {
+            ESP_LOGE(TAG, "Unable to allocate memory");
+            ret = MENDER_FAIL;
+            goto FAIL;
+        }
+        **uid = stats.st_uid;
+    }
+    if (NULL != gid) {
+        if (NULL == (*gid = (uint32_t *)malloc(sizeof(uint32_t)))) {
+            ESP_LOGE(TAG, "Unable to allocate memory");
+            ret = MENDER_FAIL;
+            goto FAIL;
+        }
+        **gid = stats.st_gid;
+    }
+    /* Mode is not optional and file must be a regular file to be downloaded by the server */
+    if (NULL != mode) {
+        if (NULL == (*mode = (uint32_t *)malloc(sizeof(uint32_t)))) {
+            ESP_LOGE(TAG, "Unable to allocate memory");
+            ret = MENDER_FAIL;
+            goto FAIL;
+        }
+        **mode = stats.st_mode;
+    }
+    /* Last modification time is optional, format seconds since epoch */
+    if (NULL != time) {
+        if (NULL == (*time = (time_t *)malloc(sizeof(time_t)))) {
+            ESP_LOGE(TAG, "Unable to allocate memory");
+            ret = MENDER_FAIL;
+            goto FAIL;
+        }
+        **time = stats.st_mtim.tv_sec;
+    }
+
+FAIL:
+
+    return ret;
+}
+
+static mender_err_t
+file_transfer_open_cb(char *path, char *mode, void **handle) {
+
+    assert(NULL != path);
+    assert(NULL != mode);
+
+    /* Open file */
+    ESP_LOGI(TAG, "Opening file '%s' with mode '%s'", path, mode);
+    if (NULL == (*handle = (void *)fopen(path, mode))) {
+        ESP_LOGE(TAG, "Unable to open file '%s'", path);
+        return MENDER_FAIL;
+    }
+
+    return MENDER_OK;
+}
+
+static mender_err_t
+file_transfer_read_cb(void *handle, void *data, size_t *length) {
+
+    assert(NULL != handle);
+    assert(NULL != data);
+    assert(NULL != length);
+
+    /* Read file */
+    *length = fread(data, sizeof(uint8_t), *length, (FILE *)handle);
+
+    return MENDER_OK;
+}
+
+static mender_err_t
+file_transfer_write_cb(void *handle, void *data, size_t length) {
+
+    assert(NULL != handle);
+    assert(NULL != data);
+
+    /* Write file */
+    if (length != fwrite(data, sizeof(uint8_t), length, (FILE *)handle)) {
+        ESP_LOGE(TAG, "Unable to write data to the file");
+        return MENDER_FAIL;
+    }
+
+    return MENDER_OK;
+}
+
+static mender_err_t
+file_transfer_close_cb(void *handle) {
+
+    assert(NULL != handle);
+
+    /* Close file */
+    ESP_LOGI(TAG, "Closing file");
+    fclose((FILE *)handle);
+
+    return MENDER_OK;
+}
+
+#endif /* CONFIG_MENDER_CLIENT_TROUBLESHOOT_FILE_TRANSFER */
+#ifdef CONFIG_MENDER_CLIENT_TROUBLESHOOT_SHELL
 
 /**
  * @brief Function used to replace a string in the input buffer
@@ -328,6 +458,7 @@ shell_vprintf(const char *format, va_list args) {
     if (NULL == (tmp = str_replace(buffer, "\r|\n", "\r\n"))) {
         goto END;
     }
+    free(buffer);
     buffer = tmp;
 
     /* Print log on the shell */
@@ -344,13 +475,13 @@ END:
 }
 
 /**
- * @brief Shell begin callback
+ * @brief Shell open callback
  * @param terminal_width Terminal width
  * @param terminal_height Terminal height
  * @return MENDER_OK if the function succeeds, error code otherwise
  */
 static mender_err_t
-shell_begin_cb(uint16_t terminal_width, uint16_t terminal_height) {
+shell_open_cb(uint16_t terminal_width, uint16_t terminal_height) {
 
     /* Shell is connected, print terminal size */
     ESP_LOGI(TAG, "Shell connected with width=%d and height=%d", terminal_width, terminal_height);
@@ -383,27 +514,30 @@ shell_resize_cb(uint16_t terminal_width, uint16_t terminal_height) {
  * @return MENDER_OK if the function succeeds, error code otherwise
  */
 static mender_err_t
-shell_write_cb(uint8_t *data, size_t length) {
+shell_write_cb(void *data, size_t length) {
 
     mender_err_t ret = MENDER_OK;
     char        *buffer, *tmp;
 
     /* Ensure new line is "\r\n" to have a proper display of the data in the shell */
-    if (NULL == (buffer = strndup((char *)data, length))) {
+    if (NULL == (buffer = (char *)malloc(length + 1))) {
         ESP_LOGE(TAG, "Unable to allocate memory");
         ret = MENDER_FAIL;
         goto END;
     }
+    memcpy(buffer, data, length);
+    buffer[length] = '\0';
     if (NULL == (tmp = str_replace(buffer, "\r|\n", "\r\n"))) {
         ESP_LOGE(TAG, "Unable to allocate memory");
         ret = MENDER_FAIL;
         goto END;
     }
+    free(buffer);
     buffer = tmp;
 
     /* Send back the data received */
-    if (MENDER_OK != (ret = mender_troubleshoot_shell_print((uint8_t *)buffer, strlen(buffer)))) {
-        ESP_LOGE(TAG, "Unable to print data to the sehll");
+    if (MENDER_OK != (ret = mender_troubleshoot_shell_print((void *)buffer, strlen(buffer)))) {
+        ESP_LOGE(TAG, "Unable to print data to the shell");
         ret = MENDER_FAIL;
         goto END;
     }
@@ -419,11 +553,11 @@ END:
 }
 
 /**
- * @brief Shell end callback
+ * @brief Shell close callback
  * @return MENDER_OK if the function succeeds, error code otherwise
  */
 static mender_err_t
-shell_end_cb(void) {
+shell_close_cb(void) {
 
     /* Route logs back to the UART port */
     esp_log_set_vprintf(vprintf);
@@ -434,6 +568,7 @@ shell_end_cb(void) {
     return MENDER_OK;
 }
 
+#endif /* CONFIG_MENDER_CLIENT_TROUBLESHOOT_SHELL */
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT */
 
 /**
@@ -450,6 +585,40 @@ app_main(void) {
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+
+#ifdef CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT
+#ifdef CONFIG_MENDER_CLIENT_TROUBLESHOOT_FILE_TRANSFER
+
+    /* Initialize LittleFS */
+    esp_vfs_littlefs_conf_t littlefs_conf = {
+        .base_path              = "/littlefs",
+        .partition_label        = "storage",
+        .format_if_mount_failed = true,
+        .dont_mount             = false,
+    };
+    ret = esp_vfs_littlefs_register(&littlefs_conf);
+    if (ESP_OK != ret) {
+        if (ESP_FAIL == ret) {
+            ESP_LOGE(TAG, "Failed to mount or format filesystem");
+        } else if (ESP_ERR_NOT_FOUND == ret) {
+            ESP_LOGE(TAG, "Failed to find LittleFS partition");
+        } else {
+            ESP_LOGE(TAG, "Failed to initialize LittleFS (%s)", esp_err_to_name(ret));
+        }
+    }
+    ESP_ERROR_CHECK(ret);
+    size_t total = 0, used = 0;
+    ret = esp_littlefs_info(littlefs_conf.partition_label, &total, &used);
+    if (ESP_OK != ret) {
+        ESP_LOGE(TAG, "Failed to get LittleFS partition information (%s)", esp_err_to_name(ret));
+        esp_littlefs_format(littlefs_conf.partition_label);
+    } else {
+        ESP_LOGI(TAG, "LittleFS partition size: total: %d, used: %d", total, used);
+    }
+    ESP_ERROR_CHECK(ret);
+
+#endif /* CONFIG_MENDER_CLIENT_TROUBLESHOOT_FILE_TRANSFER */
+#endif /* CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT */
 
     /* Initialize network */
     ESP_ERROR_CHECK(esp_netif_init());
@@ -516,9 +685,19 @@ app_main(void) {
     ESP_LOGI(TAG, "Mender inventory add-on registered");
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY */
 #ifdef CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT
-    mender_troubleshoot_config_t    mender_troubleshoot_config = { .healthcheck_interval = 0 };
-    mender_troubleshoot_callbacks_t mender_troubleshoot_callbacks
-        = { .shell_begin = shell_begin_cb, .shell_resize = shell_resize_cb, .shell_write = shell_write_cb, .shell_end = shell_end_cb };
+    mender_troubleshoot_config_t    mender_troubleshoot_config    = { .host = NULL, .healthcheck_interval = 0 };
+    mender_troubleshoot_callbacks_t mender_troubleshoot_callbacks = {
+#ifdef CONFIG_MENDER_CLIENT_TROUBLESHOOT_FILE_TRANSFER
+        .file_transfer = { .stat  = file_transfer_stat_cb,
+                           .open  = file_transfer_open_cb,
+                           .read  = file_transfer_read_cb,
+                           .write = file_transfer_write_cb,
+                           .close = file_transfer_close_cb },
+#endif /* CONFIG_MENDER_CLIENT_TROUBLESHOOT_FILE_TRANSFER */
+#ifdef CONFIG_MENDER_CLIENT_TROUBLESHOOT_SHELL
+        .shell = { .open = shell_open_cb, .resize = shell_resize_cb, .write = shell_write_cb, .close = shell_close_cb }
+#endif /* CONFIG_MENDER_CLIENT_TROUBLESHOOT_SHELL */
+    };
     ESP_ERROR_CHECK(mender_client_register_addon(
         (mender_addon_instance_t *)&mender_troubleshoot_addon_instance, (void *)&mender_troubleshoot_config, (void *)&mender_troubleshoot_callbacks));
     ESP_LOGI(TAG, "Mender troubleshoot add-on registered");

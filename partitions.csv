@@ -2,5 +2,6 @@
 nvs,      data, nvs,      ,        32K,
 otadata,  data, ota,      ,        8K,
 phy_init, data, phy,      ,        4K,
-ota_0,    app,  ota_0,    ,        1984K,
-ota_1,    app,  ota_1,    ,        1984K,
+ota_0,    app,  ota_0,    ,        1728K,
+ota_1,    app,  ota_1,    ,        1728K,
+storage,  data, littlefs, ,        512K,
