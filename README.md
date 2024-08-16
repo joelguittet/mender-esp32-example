@@ -38,7 +38,7 @@ You may want to customize few interesting settings:
 
 Other settings are available in the Kconfig. You can also refer to the mender-mcu-client API and configuration keys.
 
-Particularly, it is possible to activate the Device Troubleshoot add-on that will permit to display the logs of the ESP32 directly on the Mender interface as shown on the following screenshot.
+Particularly, it is possible to activate the Device Troubleshoot add-on that will permit to display the logs of the ESP32 directly on the Mender interface as shown on the following screenshot. File Transfer feature can be activated too. A littlefs partition is used to upload/download files to/from the Mender server.
 
 ![Troubleshoot console](https://raw.githubusercontent.com/joelguittet/mender-esp32-example/master/.github/docs/troubleshoot.png)
 
@@ -181,6 +181,12 @@ Congratulation! You have updated the device. Mender server displays the success 
 
 In case of failure to connect and authenticate to the server the current example application performs a rollback to the previous release.
 You can customize the behavior of the example application to add your own checks and perform the rollback in case the tests fail.
+
+### Using Device Troubleshoot add-on
+
+The Device Troubleshoot add-on permits to display the Zephyr Shell on the Mender interface. Autocompletion and colors are available.
+
+The Device Troubleshoot add-on also permits to upload/download files to/from the Mender server. The littlefs partition mounted at `/littlefs` is used to demonstrate this feature. To send a file to the device, destination path must start with `/littlefs`. To download a file from the device the full path is expected, starting with `/littlefs`.
 
 ### Using an other ESP32 module
 
