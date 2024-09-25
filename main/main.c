@@ -694,6 +694,9 @@ app_main(void) {
                            .write = file_transfer_write_cb,
                            .close = file_transfer_close_cb },
 #endif /* CONFIG_MENDER_CLIENT_TROUBLESHOOT_FILE_TRANSFER */
+#ifdef CONFIG_MENDER_CLIENT_TROUBLESHOOT_PORT_FORWARDING
+        .port_forwarding = { .connect = NULL, .send = NULL, .close = NULL },
+#endif /* CONFIG_MENDER_CLIENT_TROUBLESHOOT_PORT_FORWARDING */
 #ifdef CONFIG_MENDER_CLIENT_TROUBLESHOOT_SHELL
         .shell = { .open = shell_open_cb, .resize = shell_resize_cb, .write = shell_write_cb, .close = shell_close_cb }
 #endif /* CONFIG_MENDER_CLIENT_TROUBLESHOOT_SHELL */
