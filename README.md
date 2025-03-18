@@ -49,47 +49,89 @@ Note this also constraints to download [esp_websocket_client](https://components
 After flashing the application on the ESP32 module and displaying logs, you should be able to see the following:
 
 ```
-I (640) main: MAC address of the device '7c:9e:bd:ed:bc:1c'
-I (650) main: Running project 'mender-esp32-example' version '0.1'
-I (660) main: Mender client initialized
-I (660) main: Mender inventory add-on registered
-I (680) mender: ./components/mender-mcu-client/mender-mcu-client/platform/storage/esp-idf/nvs/src/mender-storage.c (163): Deployment data not available
-I (680) main: Mender client connect network
-I (690) example_connect: Start example_connect.
+I (31) boot: ESP-IDF v5.4-690-gd4aa25a38e 2nd stage bootloader
+I (31) boot: compile time Mar 18 2025 21:36:25
+I (31) boot: Multicore bootloader
+I (33) boot: chip revision: v1.0
+I (36) boot.esp32: SPI Speed      : 40MHz
+I (40) boot.esp32: SPI Mode       : DIO
+I (43) boot.esp32: SPI Flash Size : 4MB
+I (47) boot: Enabling RNG early entropy source...
+I (52) boot: Partition Table:
+I (54) boot: ## Label            Usage          Type ST Offset   Length
+I (60) boot:  0 nvs              WiFi data        01 02 00009000 00008000
+I (67) boot:  1 otadata          OTA data         01 00 00011000 00002000
+I (74) boot:  2 phy_init         RF data          01 01 00013000 00001000
+I (80) boot:  3 ota_0            OTA app          00 10 00020000 001b0000
+I (87) boot:  4 ota_1            OTA app          00 11 001d0000 001b0000
+I (93) boot:  5 storage          Unknown data     01 83 00380000 00080000
+I (100) boot: End of partition table
+
+... (system booting)
+
+I (602) main_task: Started on CPU0
+I (612) main_task: Calling app_main()
+I (622) main: MAC address of the device '7c:9e:bd:ed:bc:1c'
+I (622) main: Running project 'mender-esp32-example' version '0.1'
+I (622) main: Mender client initialized
+I (632) main: Mender inventory add-on registered
+I (632) mender: ./components/mender-mcu-client/mender-mcu-client/platform/storage/esp-idf/nvs/src/mender-storage.c (83): Authentication keys are not available
+I (652) mender: ./components/mender-mcu-client/mender-mcu-client/platform/tls/generic/mbedtls/src/mender-tls.c (118): Generating authentication keys...
+I (20112) mender: ./components/mender-mcu-client/mender-mcu-client/platform/storage/esp-idf/nvs/src/mender-storage.c (157): Deployment data not available
+I (20112) main: Mender client connect network
+I (20122) main: Connecting to the network
+I (20122) example_connect: Start example_connect.
 
 ... (wifi connecting to the network)
 
-I (5560) example_connect: Got IPv4 event: Interface "example_netif_sta" address: 192.168.2.140
-I (5640) example_connect: Got IPv6 event: Interface "example_netif_sta" address: fe80:0000:0000:0000:7e9e:bdff:feed:bc1c, type: 
-ESP_IP6_ADDR_IS_LINK_LOCAL
-I (5640) example_common: Connected to example_netif_sta
-I (5650) example_common: - IPv4 address: 192.168.2.140,
-I (5650) example_common: - IPv6 address: fe80:0000:0000:0000:7e9e:bdff:feed:bc1c, type: ESP_IP6_ADDR_IS_LINK_LOCAL
-I (7740) esp-x509-crt-bundle: Certificate validated
-I (8870) HTTP_CLIENT: Body received in fetch header state, 0x3ffc9b11, 86
-E (8870) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-api.c (900): [401] Unauthorized: dev auth: unauthorized
-I (8880) main: Mender client authentication failed
-I (8880) main: Mender client released network
+I (24542) example_connect: Got IPv4 event: Interface "example_netif_sta" address: 192.168.2.140
+I (24622) example_connect: Got IPv6 event: Interface "example_netif_sta" address: fe80:0000:0000:0000:7e9e:bdff:feed:bc1c, type: ESP_IP6_ADDR_IS_LINK_LOCAL
+I (24622) example_common: Connected to example_netif_sta
+I (24632) example_common: - IPv4 address: 192.168.2.140,
+I (24632) example_common: - IPv6 address: fe80:0000:0000:0000:7e9e:bdff:feed:bc1c, type: ESP_IP6_ADDR_IS_LINK_LOCAL
+I (24722) main: Connected to the network
+I (27172) esp-x509-crt-bundle: Certificate validated
+E (28302) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-api.c (514): [401] Unauthorized: dev auth: unauthorized
+I (28302) main: Mender client authentication failed
+I (28302) main: Mender client released network
+I (38312) main: Disconnecting network
+
+... (wifi disconnecting of the network)
+
+I (38342) main: Disconnected of the network
 ```
 
 Which means you now have generated authentication keys on the device. Authentication keys are stored in NVS partition of the ESP32. You now have to accept your device on the mender interface. Once it is accepted on the mender interface the following will be displayed:
 
 ```
-I (60670) main: Mender client connect network
-I (60670) example_connect: Start example_connect.
+I (120632) main: Mender client connect network
+I (120632) main: Connecting to the network
+I (120632) example_connect: Start example_connect.
 
 ... (wifi connecting to the network)
 
-I (65640) example_common: Connected to example_netif_sta
-I (65650) example_common: - IPv4 address: 192.168.2.140,
-I (65650) example_common: - IPv6 address: fe80:0000:0000:0000:7e9e:bdff:feed:bc1c, type: ESP_IP6_ADDR_IS_LINK_LOCAL
-I (68150) esp-x509-crt-bundle: Certificate validated
-I (69290) HTTP_CLIENT: Body received in fetch header state, 0x3ffc6070, 156
-I (69290) main: Mender client authenticated
-I (69290) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (884): Checking for deployment...
-I (69740) esp-x509-crt-bundle: Certificate validated
-I (70720) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (892): No deployment available
-I (70720) main: Mender client released network
+I (124622) example_connect: Got IPv6 event: Interface "example_netif_sta" address: fe80:0000:0000:0000:7e9e:bdff:feed:bc1c, type: ESP_IP6_ADDR_IS_LINK_LOCAL
+I (124962) esp_netif_handlers: example_netif_sta ip: 192.168.2.140, mask: 255.255.255.0, gw: 192.168.2.1
+I (124962) example_connect: Got IPv4 event: Interface "example_netif_sta" address: 192.168.2.140
+I (124972) example_common: Connected to example_netif_sta
+I (124972) example_common: - IPv4 address: 192.168.2.140,
+I (124982) example_common: - IPv6 address: fe80:0000:0000:0000:7e9e:bdff:feed:bc1c, type: ESP_IP6_ADDR_IS_LINK_LOCAL
+I (125622) main: Connected to the network
+I (126912) esp-x509-crt-bundle: Certificate validated
+I (128032) main: Mender client authenticated
+I (128042) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (902): Checking for deployment...
+I (128542) esp-x509-crt-bundle: Certificate validated
+I (129462) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (910): No deployment available
+I (129472) main: Mender client released network
+I (129472) main: Mender client connect network
+I (129482) main: Connected to the network
+I (129972) esp-x509-crt-bundle: Certificate validated
+I (131102) main: Mender client released network
+I (141102) main: Disconnecting network
+
+... (wifi disconnecting of the network)
+
+I (141132) main: Disconnected of the network
 ```
 
 Congratulation! Your device is connected to the mender server. Device type is `mender-esp32-example` and the current software version is displayed.
@@ -109,70 +151,96 @@ Upload the artifact `mender-esp32-example-v0.2.mender` to the mender server and 
 The device checks for the new deployment, downloads the artifact and installs it on the next ota partition. Then it reboots to apply the update:
 
 ```
-I (249310) main: Mender client connect network
-I (249310) example_connect: Start example_connect.
+I (248042) main: Mender client connect network
+I (248042) main: Connecting to the network
+I (248042) example_connect: Start example_connect.
 
 ... (wifi connecting to the network)
 
-I (254100) example_common: Connected to example_netif_sta
-I (254100) example_common: - IPv4 address: 192.168.2.140,
-I (254110) example_common: - IPv6 address: fe80:0000:0000:0000:7e9e:bdff:feed:bc1c, type: ESP_IP6_ADDR_IS_LINK_LOCAL
-I (254120) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (884): Checking for deployment...
-I (254190) wifi:<ba-add>idx:0 (ifx:0, ca:fb:00:03:97:ce), tid:0, ssn:1, winSize:64
-I (255140) esp-x509-crt-bundle: Certificate validated
-I (256120) HTTP_CLIENT: Body received in fetch header state, 0x3ffcae18, 140
-I (256120) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (918): Downloading deployment artifact with id '2c878cbb-3268-4aac-8fd9-9fdb07430739', artifact name 'mender-esp32-example-v0.2' and uri 'https://hosted-mender-artifacts.s3.amazonaws.com/6370b06a7f0deaedb279fb6a/8041a7d0-5db2-4223-b512-15c98eab87fb?X-Amz-Algorit
-I (256570) esp-x509-crt-bundle: Certificate validated
-I (257650) main: Deployment status is 'downloading'
-I (258420) esp-x509-crt-bundle: Certificate validated
-I (259550) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-artifact.c (382): Artifact has valid versionI (260170) mender: ./components/mender-mcu-client/mender-mcu-client/platform/flash/esp-idf/src/mender-flash.c (48): Start flashing artifact 'mender-esp32-example.bin' with size 931696
-I (260180) mender: ./components/mender-mcu-client/mender-mcu-client/platform/flash/esp-idf/src/mender-flash.c (61): Next update 
-partition is 'ota_1', subtype 17 at offset 0x210000 and with size 2031616
-I (318090) esp_image: segment 0: paddr=00210020 vaddr=3f400020 size=38c98h (232600) map
-I (318170) esp_image: segment 1: paddr=00248cc0 vaddr=3ffb0000 size=0328ch ( 12940) 
-I (318170) esp_image: segment 2: paddr=0024bf54 vaddr=40080000 size=040c4h ( 16580) 
-I (318180) esp_image: segment 3: paddr=00250020 vaddr=400d0020 size=93a4ch (604748) map
-I (318380) esp_image: segment 4: paddr=002e3a74 vaddr=400840c4 size=0fccch ( 64716) 
-I (318400) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (930): Download done, installing artifact
-I (319450) esp-x509-crt-bundle: Certificate validated
-I (320580) main: Deployment status is 'installing'
-I (320580) esp_image: segment 0: paddr=00210020 vaddr=3f400020 size=38c98h (232600) map
-I (320660) esp_image: segment 1: paddr=00248cc0 vaddr=3ffb0000 size=0328ch ( 12940) 
-I (320670) esp_image: segment 2: paddr=0024bf54 vaddr=40080000 size=040c4h ( 16580) 
-I (320670) esp_image: segment 3: paddr=00250020 vaddr=400d0020 size=93a4ch (604748) map
-I (320870) esp_image: segment 4: paddr=002e3a74 vaddr=400840c4 size=0fccch ( 64716) 
-I (321500) esp-x509-crt-bundle: Certificate validated
-I (322630) main: Deployment status is 'rebooting'
-I (322630) main: Mender client released network
+I (252372) example_connect: Got IPv4 event: Interface "example_netif_sta" address: 192.168.2.140
+I (252622) example_connect: Got IPv6 event: Interface "example_netif_sta" address: fe80:0000:0000:0000:7e9e:bdff:feed:bc1c, type: ESP_IP6_ADDR_IS_LINK_LOCAL
+I (252622) example_common: Connected to example_netif_sta
+I (252632) example_common: - IPv4 address: 192.168.2.140,
+I (252632) example_common: - IPv6 address: fe80:0000:0000:0000:7e9e:bdff:feed:bc1c, type: ESP_IP6_ADDR_IS_LINK_LOCAL
+I (252652) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (902): Checking for deployment...
+I (252662) main: Connected to the network
+I (253152) esp-x509-crt-bundle: Certificate validated
+I (254092) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (929): Downloading deployment artifact with id '933bd469-4658-4e02-9138-eed503defc27', artifact name 'mender-esp32-example-v0.2' and uri 'https://hosted-mender-artifacts.s3.amazonaws.com/6370b06a7f0deaedb279fb6a/c84ecede-8f37-40e6-9f2f-1ec67f0f4c03?X-Amz-Algorit
+I (254702) esp-x509-crt-bundle: Certificate validated
+I (255832) main: Deployment status is 'downloading'
+I (256542) esp-x509-crt-bundle: Certificate validated
+I (258302) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-artifact.c (374): Artifact has valid version
+I (258302) mender: ./components/mender-mcu-client/mender-mcu-client/platform/flash/esp-idf/src/mender-flash.c (40): Start flashing artifact 'mender-esp32-example.bin' with size 1168416
+I (258312) mender: ./components/mender-mcu-client/mender-mcu-client/platform/flash/esp-idf/src/mender-flash.c (53): Next update partition is 'ota_1', subtype 17 at offset 0x1d0000 and with size 1769472
+I (320662) esp_image: segment 0: paddr=001d0020 vaddr=3f400020 size=3e794h (255892) map
+I (320752) esp_image: segment 1: paddr=0020e7bc vaddr=3ff80000 size=0001ch (    28) 
+I (320752) esp_image: segment 2: paddr=0020e7e0 vaddr=3ffb0000 size=01838h (  6200) 
+I (320762) esp_image: segment 3: paddr=00210020 vaddr=400d0020 size=c2b24h (797476) map
+I (321032) esp_image: segment 4: paddr=002d2b4c vaddr=3ffb1838 size=02afch ( 11004) 
+I (321032) esp_image: segment 5: paddr=002d5650 vaddr=40080000 size=17dach ( 97708) 
+I (321072) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (941): Download done, installing artifact
+I (321672) esp-x509-crt-bundle: Certificate validated
+I (322802) main: Deployment status is 'installing'
+I (322802) esp_image: segment 0: paddr=001d0020 vaddr=3f400020 size=3e794h (255892) map
+I (322892) esp_image: segment 1: paddr=0020e7bc vaddr=3ff80000 size=0001ch (    28) 
+I (322892) esp_image: segment 2: paddr=0020e7e0 vaddr=3ffb0000 size=01838h (  6200) 
+I (322902) esp_image: segment 3: paddr=00210020 vaddr=400d0020 size=c2b24h (797476) map
+I (323172) esp_image: segment 4: paddr=002d2b4c vaddr=3ffb1838 size=02afch ( 11004) 
+I (323182) esp_image: segment 5: paddr=002d5650 vaddr=40080000 size=17dach ( 97708) 
+I (323722) esp-x509-crt-bundle: Certificate validated
+I (324852) main: Deployment status is 'rebooting'
+I (324852) main: Mender client released network
+I (324852) main: Disconnecting network
 
-...
+... (wifi disconnecting of the network)
 
-I (329220) main: Restarting system
+I (324892) main: Disconnected of the network
+I (334902) main: Restarting system
 
 ... (system is rebooting)
 
-I (696) main: MAC address of the device '7c:9e:bd:ed:bc:1c'
-I (696) main: Running project 'mender-esp32-example' version '0.2'
-I (706) main: Mender client initialized
-I (706) main: Mender inventory add-on registered
-I (726) main: Mender client connect network
-I (726) example_connect: Start example_connect.
+I (698) main_task: Started on CPU0
+I (708) main_task: Calling app_main()
+I (758) main: LittleFS partition size: total: 524288, used: 143360
+I (758) main: MAC address of the device '7c:9e:bd:ed:bc:1c'
+I (768) main: Running project 'mender-esp32-example' version '0.2'
+I (768) main: Mender client initialized
+I (778) mender: ./components/mender-mcu-client/mender-mcu-client/platform/storage/esp-idf/nvs/src/mender-storage.c (220): Device configuration not available
+I (788) main: Mender configure add-on registered
+I (798) main: Mender inventory add-on registered
+I (798) main: Mender troubleshoot add-on registered
+I (808) main: Device configuration retrieved
+I (818) main: Mender client connect network
+I (818) main: Connecting to the network
+I (818) example_connect: Start example_connect.
 
 ... (wifi connecting to the network)
 
-I (5686) example_common: Connected to example_netif_sta
-I (5696) example_common: - IPv4 address: 192.168.2.140,
-I (5696) example_common: - IPv6 address: fe80:0000:0000:0000:7e9e:bdff:feed:bc1c, type: ESP_IP6_ADDR_IS_LINK_LOCAL
-I (7656) esp-x509-crt-bundle: Certificate validated
-I (8706) HTTP_CLIENT: Body received in fetch header state, 0x3ffca4b8, 156
-I (8706) main: Mender client authenticated
-I (8776) mender: ./components/mender-mcu-client/mender-mcu-client/platform/flash/esp-idf/src/mender-flash.c (171): Application has been mark valid and rollback canceled
-I (9296) esp-x509-crt-bundle: Certificate validated
-I (10426) main: Deployment status is 'success'
-I (10446) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (884): Checking for deployment...
-I (10936) esp-x509-crt-bundle: Certificate validated
-I (11866) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (892): No deployment available
-I (11866) main: Mender client released network
+I (4758) example_connect: Got IPv6 event: Interface "example_netif_sta" address: fe80:0000:0000:0000:7e9e:bdff:feed:bc1c, type: ESP_IP6_ADDR_IS_LINK_LOCAL
+I (5218) esp_netif_handlers: example_netif_sta ip: 192.168.2.140, mask: 255.255.255.0, gw: 192.168.2.1
+I (5218) example_connect: Got IPv4 event: Interface "example_netif_sta" address: 192.168.2.140
+I (5218) example_common: Connected to example_netif_sta
+I (5228) example_common: - IPv4 address: 192.168.2.140,
+I (5238) example_common: - IPv6 address: fe80:0000:0000:0000:7e9e:bdff:feed:bc1c, type: ESP_IP6_ADDR_IS_LINK_LOCAL
+I (5758) main: Connected to the network
+I (7048) esp-x509-crt-bundle: Certificate validated
+I (8168) main: Mender client authenticated
+I (8238) mender: ./components/mender-mcu-client/mender-mcu-client/platform/flash/esp-idf/src/mender-flash.c (163): Application has been mark valid and rollback canceled
+I (8678) esp-x509-crt-bundle: Certificate validated
+I (9768) main: Deployment status is 'success'
+I (9778) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (902): Checking for deployment...
+I (10318) esp-x509-crt-bundle: Certificate validated
+I (11238) mender: ./components/mender-mcu-client/mender-mcu-client/core/src/mender-client.c (910): No deployment available
+I (11248) main: Mender client released network
+I (11248) main: Mender client connect network
+I (11482) main: Connected to the network
+I (11972) esp-x509-crt-bundle: Certificate validated
+I (13102) main: Mender client released network
+I (13102) main: Disconnecting network
+
+... (wifi disconnecting of the network)
+
+I (13132) main: Disconnected of the network
 ```
 
 Congratulation! You have updated the device. Mender server displays the success of the deployment.
