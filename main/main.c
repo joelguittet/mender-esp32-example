@@ -51,7 +51,11 @@ static const char *TAG = "main";
  * @brief Mender client events
  */
 static EventGroupHandle_t mender_client_events;
-#define MENDER_CLIENT_EVENT_RESTART (1 << 0)
+#define MENDER_CLIENT_EVENT_CONNECT      (1 << 0)
+#define MENDER_CLIENT_EVENT_CONNECTED    (1 << 1)
+#define MENDER_CLIENT_EVENT_DISCONNECT   (1 << 2)
+#define MENDER_CLIENT_EVENT_DISCONNECTED (1 << 3)
+#define MENDER_CLIENT_EVENT_RESTART      (1 << 4)
 
 /**
  * @brief Network connnect callback
@@ -65,10 +69,12 @@ network_connect_cb(void) {
     /* This callback can be used to configure network connection */
     /* Note that the application can connect the network before if required */
     /* This callback only indicates the mender-client requests network access now */
-    /* In this example this helper function configures Wi-Fi or Ethernet, as selected in menuconfig */
+    /* In this example, example_connect and example_disconnect configures Wi-Fi or Ethernet, as selected in menuconfig */
     /* Read "Establishing Wi-Fi or Ethernet Connection" section in examples/protocols/README.md for more information */
-    if (ESP_OK != example_connect()) {
-        ESP_LOGE(TAG, "Unable to connect network");
+    xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_CONNECT);
+    EventBits_t bits = xEventGroupWaitBits(
+        mender_client_events, MENDER_CLIENT_EVENT_CONNECTED | MENDER_CLIENT_EVENT_DISCONNECTED, pdTRUE, pdFALSE, 30000 / portTICK_PERIOD_MS);
+    if (MENDER_CLIENT_EVENT_CONNECTED != (bits & MENDER_CLIENT_EVENT_CONNECTED)) {
         return MENDER_FAIL;
     }
 
@@ -87,11 +93,7 @@ network_release_cb(void) {
     /* This callback can be used to release network connection */
     /* Note that the application can keep network activated if required */
     /* This callback only indicates the mender-client doesn't request network access now */
-    /* in this example this helper function disconnects the network */
-    if (ESP_OK != example_disconnect()) {
-        ESP_LOGE(TAG, "Unable to disconnect network");
-        return MENDER_FAIL;
-    }
+    xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_DISCONNECT);
 
     return MENDER_OK;
 }
@@ -740,8 +742,79 @@ app_main(void) {
         goto RELEASE;
     }
 
-    /* Wait for mender-mcu-client events */
-    xEventGroupWaitBits(mender_client_events, MENDER_CLIENT_EVENT_RESTART, pdTRUE, pdFALSE, portMAX_DELAY);
+    /* Wait for mender-mcu-client events, connect and disconnect network on request, restart the application if required */
+    bool connected = false;
+    while (1) {
+        EventBits_t bits = xEventGroupWaitBits(
+            mender_client_events, MENDER_CLIENT_EVENT_CONNECT | MENDER_CLIENT_EVENT_DISCONNECT | MENDER_CLIENT_EVENT_RESTART, pdTRUE, pdFALSE, portMAX_DELAY);
+        if (MENDER_CLIENT_EVENT_CONNECT == (bits & MENDER_CLIENT_EVENT_CONNECT)) {
+            /* Connect to the network */
+            ESP_LOGI(TAG, "Connecting to the network");
+            if (ESP_OK != example_connect()) {
+                xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_DISCONNECTED);
+                ESP_LOGE(TAG, "Unable to connect network");
+            } else {
+                connected = true;
+                xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_CONNECTED);
+                ESP_LOGI(TAG, "Connected to the network");
+            }
+        } else if (MENDER_CLIENT_EVENT_DISCONNECT == (bits & MENDER_CLIENT_EVENT_DISCONNECT)) {
+            bits = xEventGroupWaitBits(mender_client_events, MENDER_CLIENT_EVENT_CONNECT, pdTRUE, pdFALSE, 10000 / portTICK_PERIOD_MS);
+            if (MENDER_CLIENT_EVENT_CONNECT == (bits & MENDER_CLIENT_EVENT_CONNECT)) {
+                /* Reconnection requested while not disconnected yet */
+                xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_CONNECTED);
+                ESP_LOGI(TAG, "Connected to the network");
+            } else {
+                /* Disconnect the network */
+                ESP_LOGI(TAG, "Disconnecting network");
+                if (ESP_OK != example_disconnect()) {
+                    ESP_LOGE(TAG, "Unable to disconnect network");
+                } else {
+                    connected = false;
+                    ESP_LOGI(TAG, "Disconnected of the network");
+                }
+            }
+        }
+        if (MENDER_CLIENT_EVENT_RESTART == (bits & MENDER_CLIENT_EVENT_RESTART)) {
+            while (1) {
+                bits = xEventGroupWaitBits(
+                    mender_client_events, MENDER_CLIENT_EVENT_CONNECT | MENDER_CLIENT_EVENT_DISCONNECT, pdTRUE, pdFALSE, 10000 / portTICK_PERIOD_MS);
+                if (MENDER_CLIENT_EVENT_CONNECT == (bits & MENDER_CLIENT_EVENT_CONNECT)) {
+                    /* Reconnection requested before restarting */
+                    if (!connected) {
+                        /* Connect to the network */
+                        ESP_LOGI(TAG, "Connecting to the network");
+                        if (ESP_OK != example_connect()) {
+                            xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_DISCONNECTED);
+                            ESP_LOGE(TAG, "Unable to connect network");
+                        } else {
+                            connected = true;
+                            xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_CONNECTED);
+                            ESP_LOGI(TAG, "Connected to the network");
+                        }
+                    } else {
+                        xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_CONNECTED);
+                        ESP_LOGI(TAG, "Connected to the network");
+                    }
+                } else if (MENDER_CLIENT_EVENT_DISCONNECT == (bits & MENDER_CLIENT_EVENT_DISCONNECT)) {
+                    /* Disonnection requested before restarting */
+                    if (connected) {
+                        /* Disconnect the network */
+                        ESP_LOGI(TAG, "Disconnecting network");
+                        if (ESP_OK != example_disconnect()) {
+                            ESP_LOGE(TAG, "Unable to disconnect network");
+                        } else {
+                            connected = false;
+                            ESP_LOGI(TAG, "Disconnected of the network");
+                        }
+                    }
+                } else {
+                    /* Application will restart now */
+                    goto RELEASE;
+                }
+            }
+        }
+    }
 
 RELEASE:
 
