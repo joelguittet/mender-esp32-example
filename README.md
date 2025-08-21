@@ -11,7 +11,7 @@
 
 This project is used with an [ESP32-WROOM-32D](https://www.espressif.com/sites/default/files/documentation/esp32-wroom-32d_esp32-wroom-32u_datasheet_en.pdf) module with 4MB flash. It should be compatible with other ESP32 modules with no modification.
 
-The project is built using ESP-IDF framework. There is no other dependencies. Important note: the project has been tested with ESP-IDF v5.2.x, v5.3.x and v5.4.x successfully.
+The project is built using ESP-IDF framework. There is no other dependencies. Important note: the project has been tested with ESP-IDF v5.2.x, v5.3.x, v5.4.x and v5.5.x successfully.
 
 This project is developed under [VSCode](https://code.visualstudio.com) and using [ESP-IDF Extension](https://github.com/espressif/vscode-esp-idf-extension). If you need support to use the development environment, you can refer to the "ESP-IDF Extension help" section below.
 
