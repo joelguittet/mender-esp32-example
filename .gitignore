@@ -1,3 +1,4 @@
+.clangd
 .vscode
 build
 dependencies.lock
