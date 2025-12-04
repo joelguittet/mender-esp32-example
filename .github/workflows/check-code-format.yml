@@ -34,30 +34,30 @@ jobs:
         run: |
           sudo apt-get install clang-format pcregrep
 
-      # Checkout mender-esp32-zephyr-example
-      - name: Checkout mender-esp32-zephyr-example
+      # Checkout mender-esp32-example
+      - name: Checkout mender-esp32-example
         uses: actions/checkout@v5
         with:
-          path: mender-esp32-zephyr-example
+          path: mender-esp32-example
 
       # Check code format
       - name: Check headers
         if: ${{ always() }}
-        working-directory: mender-esp32-zephyr-example
+        working-directory: mender-esp32-example
         run: |
           ./.github/workflows/check_headers.sh
       - name: Check include guards
         if: ${{ always() }}
-        working-directory: mender-esp32-zephyr-example
+        working-directory: mender-esp32-example
         run: |
           ./.github/workflows/check_include_guards.sh
       - name: Check equivalence tests
         if: ${{ always() }}
-        working-directory: mender-esp32-zephyr-example
+        working-directory: mender-esp32-example
         run: |
           ./.github/workflows/check_equivalence_tests.sh
       - name: Check code format
         if: ${{ always() }}
-        working-directory: mender-esp32-zephyr-example
+        working-directory: mender-esp32-example
         run: |
           ./.github/workflows/check_code_format.sh
