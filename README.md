@@ -1,8 +1,18 @@
 # mender-esp32-example
 
-[![CI Badge](https://github.com/joelguittet/mender-esp32-example/workflows/ci/badge.svg)](https://github.com/joelguittet/mender-esp32-example/actions)
+[![Workflow check-code-format Badge](https://github.com/joelguittet/mender-esp32-example/workflows/check-code-format/badge.svg)](https://github.com/joelguittet/mender-esp32-example/actions)
 [![Issues Badge](https://img.shields.io/github/issues/joelguittet/mender-esp32-example)](https://github.com/joelguittet/mender-esp32-example/issues)
 [![License Badge](https://img.shields.io/github/license/joelguittet/mender-esp32-example)](https://github.com/joelguittet/mender-esp32-example/blob/master/LICENSE)
+
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=joelguittet_mender-esp32-zephyr-example&metric=bugs)](https://sonarcloud.io/dashboard?id=joelguittet_mender-esp32-zephyr-example)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=joelguittet_mender-esp32-zephyr-example&metric=code_smells)](https://sonarcloud.io/dashboard?id=joelguittet_mender-esp32-zephyr-example)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=joelguittet_mender-esp32-zephyr-example&metric=duplicated_lines_density)](https://sonarcloud.io/dashboard?id=joelguittet_mender-esp32-zephyr-example)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=joelguittet_mender-esp32-zephyr-example&metric=ncloc)](https://sonarcloud.io/dashboard?id=joelguittet_mender-esp32-zephyr-example)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=joelguittet_mender-esp32-zephyr-example&metric=vulnerabilities)](https://sonarcloud.io/dashboard?id=joelguittet_mender-esp32-zephyr-example)
+
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=joelguittet_mender-esp32-zephyr-example&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=joelguittet_mender-esp32-zephyr-example)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=joelguittet_mender-esp32-zephyr-example&metric=reliability_rating)](https://sonarcloud.io/dashboard?id=joelguittet_mender-esp32-zephyr-example)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=joelguittet_mender-esp32-zephyr-example&metric=security_rating)](https://sonarcloud.io/dashboard?id=joelguittet_mender-esp32-zephyr-example)
 
 [Mender MCU client](https://github.com/joelguittet/mender-mcu-client) is an open source over-the-air (OTA) library updater for MCU devices. This demonstration project runs on ESP32 hardware.
 
