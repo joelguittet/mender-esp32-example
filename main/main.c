@@ -766,13 +766,18 @@ app_main(void) {
         EventBits_t events = xEventGroupWaitBits(
             mender_client_events, MENDER_CLIENT_EVENT_CONNECT | MENDER_CLIENT_EVENT_DISCONNECT | MENDER_CLIENT_EVENT_RESTART, pdTRUE, pdFALSE, portMAX_DELAY);
         if (MENDER_CLIENT_EVENT_CONNECT == (events & MENDER_CLIENT_EVENT_CONNECT)) {
-            /* Connect to the network */
-            ESP_LOGI(TAG, "Connecting to the network");
-            if (ESP_OK != example_connect()) {
-                xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_DISCONNECTED);
-                ESP_LOGE(TAG, "Unable to connect network");
+            if (!connected) {
+                /* Connect to the network */
+                ESP_LOGI(TAG, "Connecting to the network");
+                if (ESP_OK != example_connect()) {
+                    xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_DISCONNECTED);
+                    ESP_LOGE(TAG, "Unable to connect network");
+                } else {
+                    connected = true;
+                    xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_CONNECTED);
+                    ESP_LOGI(TAG, "Connected to the network");
+                }
             } else {
-                connected = true;
                 xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_CONNECTED);
                 ESP_LOGI(TAG, "Connected to the network");
             }
