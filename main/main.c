@@ -72,9 +72,9 @@ network_connect_cb(void) {
     /* In this example, example_connect and example_disconnect configures Wi-Fi or Ethernet, as selected in menuconfig */
     /* Read "Establishing Wi-Fi or Ethernet Connection" section in examples/protocols/README.md for more information */
     xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_CONNECT);
-    EventBits_t bits = xEventGroupWaitBits(
+    EventBits_t events = xEventGroupWaitBits(
         mender_client_events, MENDER_CLIENT_EVENT_CONNECTED | MENDER_CLIENT_EVENT_DISCONNECTED, pdTRUE, pdFALSE, 30000 / portTICK_PERIOD_MS);
-    if (MENDER_CLIENT_EVENT_CONNECTED != (bits & MENDER_CLIENT_EVENT_CONNECTED)) {
+    if (MENDER_CLIENT_EVENT_CONNECTED != (events & MENDER_CLIENT_EVENT_CONNECTED)) {
         return MENDER_FAIL;
     }
 
@@ -630,7 +630,7 @@ app_main(void) {
     uint8_t mac[6];
     char    mac_address[18];
     ESP_ERROR_CHECK(esp_read_mac(mac, ESP_MAC_WIFI_STA));
-    sprintf(mac_address, "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    snprintf(mac_address, sizeof(mac_address), "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     ESP_LOGI(TAG, "MAC address of the device '%s'", mac_address);
 
     /* Create mender-client event group */
@@ -645,7 +645,7 @@ app_main(void) {
 
     /* Compute artifact name */
     char artifact_name[128];
-    sprintf(artifact_name, "%s-v%s", running_app_info.project_name, running_app_info.version);
+    snprintf(artifact_name, sizeof(artifact_name), "%s-v%s", running_app_info.project_name, running_app_info.version);
 
     /* Retrieve device type */
     char *device_type = running_app_info.project_name;
@@ -666,7 +666,10 @@ app_main(void) {
                                                           .authentication_failure = authentication_failure_cb,
                                                           .deployment_status      = deployment_status_cb,
                                                           .restart                = restart_cb };
-    ESP_ERROR_CHECK(mender_client_init(&mender_client_config, &mender_client_callbacks));
+    if (MENDER_OK != mender_client_init(&mender_client_config, &mender_client_callbacks)) {
+        ESP_LOGE(TAG, "Unable to initialize mender client");
+        goto RESTART;
+    }
     ESP_LOGI(TAG, "Mender client initialized");
 
     /* Initialize mender add-ons */
@@ -677,13 +680,20 @@ app_main(void) {
         .config_updated = config_updated_cb,
 #endif /* CONFIG_MENDER_CLIENT_CONFIGURE_STORAGE */
     };
-    ESP_ERROR_CHECK(mender_client_register_addon(
-        (mender_addon_instance_t *)&mender_configure_addon_instance, (void *)&mender_configure_config, (void *)&mender_configure_callbacks));
+    if (MENDER_OK
+        != mender_client_register_addon(
+            (mender_addon_instance_t *)&mender_configure_addon_instance, (void *)&mender_configure_config, (void *)&mender_configure_callbacks)) {
+        ESP_LOGE(TAG, "Unable to register configure add-on");
+        goto RELEASE;
+    }
     ESP_LOGI(TAG, "Mender configure add-on registered");
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_CONFIGURE */
 #ifdef CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY
     mender_inventory_config_t mender_inventory_config = { .refresh_interval = 0 };
-    ESP_ERROR_CHECK(mender_client_register_addon((mender_addon_instance_t *)&mender_inventory_addon_instance, (void *)&mender_inventory_config, NULL));
+    if (MENDER_OK != mender_client_register_addon((mender_addon_instance_t *)&mender_inventory_addon_instance, (void *)&mender_inventory_config, NULL)) {
+        ESP_LOGE(TAG, "Unable to register inventory add-on");
+        goto RELEASE;
+    }
     ESP_LOGI(TAG, "Mender inventory add-on registered");
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY */
 #ifdef CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT
@@ -703,8 +713,12 @@ app_main(void) {
         .shell = { .open = shell_open_cb, .resize = shell_resize_cb, .write = shell_write_cb, .close = shell_close_cb }
 #endif /* CONFIG_MENDER_CLIENT_TROUBLESHOOT_SHELL */
     };
-    ESP_ERROR_CHECK(mender_client_register_addon(
-        (mender_addon_instance_t *)&mender_troubleshoot_addon_instance, (void *)&mender_troubleshoot_config, (void *)&mender_troubleshoot_callbacks));
+    if (MENDER_OK
+        != mender_client_register_addon(
+            (mender_addon_instance_t *)&mender_troubleshoot_addon_instance, (void *)&mender_troubleshoot_config, (void *)&mender_troubleshoot_callbacks)) {
+        ESP_LOGE(TAG, "Unable to register troubleshoot add-on");
+        goto RELEASE;
+    }
     ESP_LOGI(TAG, "Mender troubleshoot add-on registered");
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_TROUBLESHOOT */
 
@@ -713,6 +727,7 @@ app_main(void) {
     mender_keystore_t *configuration;
     if (MENDER_OK != mender_configure_get(&configuration)) {
         ESP_LOGE(TAG, "Unable to get mender configuration");
+        goto RELEASE;
     } else if (NULL != configuration) {
         size_t index = 0;
         ESP_LOGI(TAG, "Device configuration retrieved");
@@ -721,6 +736,8 @@ app_main(void) {
             index++;
         }
         mender_utils_keystore_delete(configuration);
+    } else {
+        ESP_LOGI(TAG, "Mender device configuration is empty");
     }
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_CONFIGURE */
 
@@ -733,6 +750,7 @@ app_main(void) {
                                       { .name = NULL, .value = NULL } };
     if (MENDER_OK != mender_inventory_set(inventory)) {
         ESP_LOGE(TAG, "Unable to set mender inventory");
+        goto RELEASE;
     }
 #endif /* CONFIG_MENDER_CLIENT_ADD_ON_INVENTORY */
 
@@ -745,9 +763,9 @@ app_main(void) {
     /* Wait for mender-mcu-client events, connect and disconnect network on request, restart the application if required */
     bool connected = false;
     while (1) {
-        EventBits_t bits = xEventGroupWaitBits(
+        EventBits_t events = xEventGroupWaitBits(
             mender_client_events, MENDER_CLIENT_EVENT_CONNECT | MENDER_CLIENT_EVENT_DISCONNECT | MENDER_CLIENT_EVENT_RESTART, pdTRUE, pdFALSE, portMAX_DELAY);
-        if (MENDER_CLIENT_EVENT_CONNECT == (bits & MENDER_CLIENT_EVENT_CONNECT)) {
+        if (MENDER_CLIENT_EVENT_CONNECT == (events & MENDER_CLIENT_EVENT_CONNECT)) {
             /* Connect to the network */
             ESP_LOGI(TAG, "Connecting to the network");
             if (ESP_OK != example_connect()) {
@@ -758,9 +776,9 @@ app_main(void) {
                 xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_CONNECTED);
                 ESP_LOGI(TAG, "Connected to the network");
             }
-        } else if (MENDER_CLIENT_EVENT_DISCONNECT == (bits & MENDER_CLIENT_EVENT_DISCONNECT)) {
-            bits = xEventGroupWaitBits(mender_client_events, MENDER_CLIENT_EVENT_CONNECT, pdTRUE, pdFALSE, 10000 / portTICK_PERIOD_MS);
-            if (MENDER_CLIENT_EVENT_CONNECT == (bits & MENDER_CLIENT_EVENT_CONNECT)) {
+        } else if (MENDER_CLIENT_EVENT_DISCONNECT == (events & MENDER_CLIENT_EVENT_DISCONNECT)) {
+            events = xEventGroupWaitBits(mender_client_events, MENDER_CLIENT_EVENT_CONNECT, pdTRUE, pdFALSE, 10000 / portTICK_PERIOD_MS);
+            if (MENDER_CLIENT_EVENT_CONNECT == (events & MENDER_CLIENT_EVENT_CONNECT)) {
                 /* Reconnection requested while not disconnected yet */
                 xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_CONNECTED);
                 ESP_LOGI(TAG, "Connected to the network");
@@ -775,11 +793,11 @@ app_main(void) {
                 }
             }
         }
-        if (MENDER_CLIENT_EVENT_RESTART == (bits & MENDER_CLIENT_EVENT_RESTART)) {
+        if (MENDER_CLIENT_EVENT_RESTART == (events & MENDER_CLIENT_EVENT_RESTART)) {
             while (1) {
-                bits = xEventGroupWaitBits(
+                events = xEventGroupWaitBits(
                     mender_client_events, MENDER_CLIENT_EVENT_CONNECT | MENDER_CLIENT_EVENT_DISCONNECT, pdTRUE, pdFALSE, 10000 / portTICK_PERIOD_MS);
-                if (MENDER_CLIENT_EVENT_CONNECT == (bits & MENDER_CLIENT_EVENT_CONNECT)) {
+                if (MENDER_CLIENT_EVENT_CONNECT == (events & MENDER_CLIENT_EVENT_CONNECT)) {
                     /* Reconnection requested before restarting */
                     if (!connected) {
                         /* Connect to the network */
@@ -796,7 +814,7 @@ app_main(void) {
                         xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_CONNECTED);
                         ESP_LOGI(TAG, "Connected to the network");
                     }
-                } else if (MENDER_CLIENT_EVENT_DISCONNECT == (bits & MENDER_CLIENT_EVENT_DISCONNECT)) {
+                } else if (MENDER_CLIENT_EVENT_DISCONNECT == (events & MENDER_CLIENT_EVENT_DISCONNECT)) {
                     /* Disonnection requested before restarting */
                     if (connected) {
                         /* Disconnect the network */
@@ -821,6 +839,8 @@ RELEASE:
     /* Deactivate and release mender-client */
     mender_client_deactivate();
     mender_client_exit();
+
+RESTART:
 
     /* Release event group */
     vEventGroupDelete(mender_client_events);
