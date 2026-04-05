@@ -782,7 +782,7 @@ app_main(void) {
                 /* Reconnection requested while not disconnected yet */
                 xEventGroupSetBits(mender_client_events, MENDER_CLIENT_EVENT_CONNECTED);
                 ESP_LOGI(TAG, "Connected to the network");
-            } else {
+            } else if (connected) {
                 /* Disconnect the network */
                 ESP_LOGI(TAG, "Disconnecting network");
                 if (ESP_OK != example_disconnect()) {
@@ -791,6 +791,8 @@ app_main(void) {
                     connected = false;
                     ESP_LOGI(TAG, "Disconnected of the network");
                 }
+            } else {
+                ESP_LOGW(TAG, "Already disconnected of the network");
             }
         }
         if (MENDER_CLIENT_EVENT_RESTART == (events & MENDER_CLIENT_EVENT_RESTART)) {
