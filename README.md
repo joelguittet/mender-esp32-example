@@ -82,7 +82,7 @@ I (100) boot: End of partition table
 I (602) main_task: Started on CPU0
 I (612) main_task: Calling app_main()
 I (622) main: MAC address of the device '7c:9e:bd:ed:bc:1c'
-I (622) main: Running project 'mender-esp32-example' version '0.1'
+I (622) main: Running project 'mender-esp32-example' version '0.1.0'
 I (622) main: Mender client initialized
 I (632) main: Mender inventory add-on registered
 I (632) mender: ./components/mender-mcu-client/mender-mcu-client/platform/storage/esp-idf/nvs/src/mender-storage.c (83): Authentication keys are not available
@@ -150,7 +150,7 @@ Congratulation! Your device is connected to the mender server. Device type is `m
 
 First retrieve [mender-artifact](https://docs.mender.io/downloads#mender-artifact) tool.
 
-Change `VERSION.txt` file to `0.2` and rebuild the firmware. Then create a new artifact using the following command line:
+Change `VERSION.txt` file to `0.2.0` and rebuild the firmware. Then create a new artifact using the following command line:
 
 ```
 mender-artifact write rootfs-image --compression none --compatible-types mender-esp32-example --artifact-name mender-esp32-example-v$(head -n1 VERSION.txt) --output-path build/mender-esp32-example-v$(head -n1 VERSION.txt).mender --file build/mender-esp32-example.bin
@@ -213,7 +213,7 @@ I (698) main_task: Started on CPU0
 I (708) main_task: Calling app_main()
 I (758) main: LittleFS partition size: total: 524288, used: 143360
 I (758) main: MAC address of the device '7c:9e:bd:ed:bc:1c'
-I (768) main: Running project 'mender-esp32-example' version '0.2'
+I (768) main: Running project 'mender-esp32-example' version '0.2.0'
 I (768) main: Mender client initialized
 I (778) mender: ./components/mender-mcu-client/mender-mcu-client/platform/storage/esp-idf/nvs/src/mender-storage.c (220): Device configuration not available
 I (788) main: Mender configure add-on registered
