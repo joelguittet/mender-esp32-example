@@ -1,6 +1,7 @@
 # mender-esp32-example
 
 [![Workflow check-code-format Badge](https://github.com/joelguittet/mender-esp32-example/workflows/check-code-format/badge.svg)](https://github.com/joelguittet/mender-esp32-example/actions)
+[![Workflow device-testing Badge](https://github.com/joelguittet/mender-esp32-example/workflows/device-testing/badge.svg)](https://github.com/joelguittet/mender-esp32-example/actions)
 [![Issues Badge](https://img.shields.io/github/issues/joelguittet/mender-esp32-example)](https://github.com/joelguittet/mender-esp32-example/issues)
 [![License Badge](https://img.shields.io/github/license/joelguittet/mender-esp32-example)](https://github.com/joelguittet/mender-esp32-example/blob/master/LICENSE)
 
@@ -269,6 +270,38 @@ The Device Troubleshoot add-on also permits to upload/download files to/from the
 ### Using an other ESP32 module
 
 The main requirement is the size of the flash that should be 4MB or more. You can increase the ota partitions in `partitions.csv` file if your module has more memory.
+
+
+## Testing
+
+[Espressif pytest-embedded](https://docs.espressif.com/projects/pytest-embedded/en/latest) and [Pytest](https://docs.pytest.org/en/stable) are used in Github actions workflows to execute tests on real target.
+
+For such purpose, Github action runner is installed on a Debian machine running the workflows. The Debian machine uses `espressif/idf` container which provides a good environment to build Espressif projects in such context.
+
+When testing is executed, a dedicated mender-server instance is used. mender-server certificate to allow device and tests connecting to the server are provided. mender-server username and password are provided throw the Github Actions secrets.
+
+The Debian machine has a local configuration `sdkconfig.ci` file used to build the firmware which contains the following settings:
+
+```
+CONFIG_MENDER_SERVER_HOST="https://docker.mender.io"
+CONFIG_MENDER_SERVER_TENANT_TOKEN=""
+CONFIG_MBEDTLS_CUSTOM_CERTIFICATE_BUNDLE=y
+CONFIG_MBEDTLS_CUSTOM_CERTIFICATE_BUNDLE_PATH="../mender.der"
+CONFIG_EXAMPLE_WIFI_SSID="<ssid of local network>"
+CONFIG_EXAMPLE_WIFI_PSK="<psk of local network>"
+```
+
+The Debian machine has also a `config.env` file to provide board settings for esptool to flash target:
+
+```
+ESPTOOL_PORT=/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0002-if00-port0
+```
+
+Tests cover device registration, inventory, configuration, firmware update and decomissioning.
+
+Tests are executed for each pull-request opened on the repository. Results are reported in the pull-request.
+
+The workflows and test files can be reused for your own projects.
 
 
 ## ESP-IDF Extension help
