@@ -23,24 +23,25 @@ on:
       - '**'
   pull_request:
     types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 jobs:
   check-code-format:
     name: Check code format
     runs-on: ubuntu-24.04
     steps:
-      # Install tools
+      # Install tools
       - name: Install tools
         run: |
           sudo apt-get install clang-format pcregrep
 
-      # Checkout mender-esp32-example
+      # Checkout mender-esp32-example
       - name: Checkout mender-esp32-example
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: mender-esp32-example
 
-      # Check code format
+      # Check code format
       - name: Check headers
         if: ${{ always() }}
         working-directory: mender-esp32-example
