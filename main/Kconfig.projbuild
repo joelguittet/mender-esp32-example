@@ -19,6 +19,16 @@ orsource "../components/mender-mcu-client/mender-mcu-client/esp-idf/Kconfig"
 
 menu "Example Configuration"
 
+    config EXAMPLE_ARTIFACT_NAME_PREFIX
+        string "Artifact name"
+        help
+            Define the artifact name prefix.
+
+    config EXAMPLE_DEVICE_TYPE
+        string "Device type"
+        help
+            Define the device type.
+
     config EXAMPLE_AUTHENTICATION_FAILS_MAX_TRIES
         int "Maximum number of retries when Mender client authentification fails"
         default 3
