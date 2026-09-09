@@ -22,7 +22,10 @@ file(STRINGS ${CMAKE_SOURCE_DIR}/VERSION.txt PROJECT_VER LIMIT_COUNT 1)
 set_property(DIRECTORY . APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/VERSION.txt)
 
 # Extra components
-set(EXTRA_COMPONENT_DIRS $ENV{IDF_PATH}/examples/common_components/protocol_examples_common)
+set(EXTRA_COMPONENT_DIRS
+    $ENV{IDF_PATH}/examples/common_components/protocol_examples_common
+    ${CMAKE_CURRENT_LIST_DIR}/components/mender-mcu-client/mender-mcu-client/esp-idf
+)
 
 # Declare project
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
