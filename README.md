@@ -153,7 +153,7 @@ First retrieve [mender-artifact](https://docs.mender.io/downloads#mender-artifac
 Change `VERSION.txt` file to `0.2` and rebuild the firmware. Then create a new artifact using the following command line:
 
 ```
-path/to/mender-artifact write rootfs-image --compression none --device-type mender-esp32-example --artifact-name mender-esp32-example-v$(head -n1 path/to/mender-esp32-example/VERSION.txt) --output-path path/to/mender-esp32-example/build/mender-esp32-example-v$(head -n1 path/to/mender-esp32-example/VERSION.txt).mender --file path/to/mender-esp32-example/build/mender-esp32-example.bin
+mender-artifact write rootfs-image --compression none --compatible-types mender-esp32-example --artifact-name mender-esp32-example-v$(head -n1 VERSION.txt) --output-path build/mender-esp32-example-v$(head -n1 VERSION.txt).mender --file build/mender-esp32-example.bin
 ```
 
 Upload the artifact `mender-esp32-example-v0.2.mender` to the mender server and create a new deployment.
