@@ -1,5 +1,5 @@
-# @file      CMakeLists.txt
-# @brief     mender-esp32-example CMakeLists file
+# @file      sdkconfig.ci.v5
+# @brief     sdkconfig CI configuration for ESP-IDF v5.x
 #
 # Copyright joelguittet and mender-mcu-client contributors
 #
@@ -15,18 +15,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.16)
-
-# Read VERSION
-file(STRINGS ${CMAKE_SOURCE_DIR}/VERSION.txt PROJECT_VER LIMIT_COUNT 1)
-set_property(DIRECTORY . APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/VERSION.txt)
-
-# Extra components
-set(EXTRA_COMPONENT_DIRS
-    $ENV{IDF_PATH}/examples/common_components/protocol_examples_common
-    ${CMAKE_CURRENT_LIST_DIR}/components/mender-mcu-client/mender-mcu-client/esp-idf
-)
-
-# Declare project
-include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(mender-esp32-example)
+# Mender MCU client
+CONFIG_MENDER_PLATFORM_TLS_TYPE_MBEDTLS=y
