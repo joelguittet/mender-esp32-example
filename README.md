@@ -1,6 +1,7 @@
 # mender-esp32-example
 
 [![Workflow check-code-format Badge](https://github.com/joelguittet/mender-esp32-example/workflows/check-code-format/badge.svg)](https://github.com/joelguittet/mender-esp32-example/actions)
+[![Workflow device-testing Badge](https://github.com/joelguittet/mender-esp32-example/workflows/device-testing/badge.svg)](https://github.com/joelguittet/mender-esp32-example/actions)
 [![Issues Badge](https://img.shields.io/github/issues/joelguittet/mender-esp32-example)](https://github.com/joelguittet/mender-esp32-example/issues)
 [![License Badge](https://img.shields.io/github/license/joelguittet/mender-esp32-example)](https://github.com/joelguittet/mender-esp32-example/blob/master/LICENSE)
 
@@ -82,7 +83,7 @@ I (100) boot: End of partition table
 I (602) main_task: Started on CPU0
 I (612) main_task: Calling app_main()
 I (622) main: MAC address of the device '7c:9e:bd:ed:bc:1c'
-I (622) main: Running project 'mender-esp32-example' version '0.1'
+I (622) main: Running project 'mender-esp32-example' version '0.1.0'
 I (622) main: Mender client initialized
 I (632) main: Mender inventory add-on registered
 I (632) mender: ./components/mender-mcu-client/mender-mcu-client/platform/storage/esp-idf/nvs/src/mender-storage.c (83): Authentication keys are not available
@@ -150,7 +151,7 @@ Congratulation! Your device is connected to the mender server. Device type is `m
 
 First retrieve [mender-artifact](https://docs.mender.io/downloads#mender-artifact) tool.
 
-Change `VERSION.txt` file to `0.2` and rebuild the firmware. Then create a new artifact using the following command line:
+Change `VERSION.txt` file to `0.2.0` and rebuild the firmware. Then create a new artifact using the following command line:
 
 ```
 mender-artifact write rootfs-image --compression none --compatible-types mender-esp32-example --artifact-name mender-esp32-example-v$(head -n1 VERSION.txt) --output-path build/mender-esp32-example-v$(head -n1 VERSION.txt).mender --file build/mender-esp32-example.bin
@@ -213,7 +214,7 @@ I (698) main_task: Started on CPU0
 I (708) main_task: Calling app_main()
 I (758) main: LittleFS partition size: total: 524288, used: 143360
 I (758) main: MAC address of the device '7c:9e:bd:ed:bc:1c'
-I (768) main: Running project 'mender-esp32-example' version '0.2'
+I (768) main: Running project 'mender-esp32-example' version '0.2.0'
 I (768) main: Mender client initialized
 I (778) mender: ./components/mender-mcu-client/mender-mcu-client/platform/storage/esp-idf/nvs/src/mender-storage.c (220): Device configuration not available
 I (788) main: Mender configure add-on registered
@@ -269,6 +270,38 @@ The Device Troubleshoot add-on also permits to upload/download files to/from the
 ### Using an other ESP32 module
 
 The main requirement is the size of the flash that should be 4MB or more. You can increase the ota partitions in `partitions.csv` file if your module has more memory.
+
+
+## Testing
+
+[Espressif pytest-embedded](https://docs.espressif.com/projects/pytest-embedded/en/latest) and [Pytest](https://docs.pytest.org/en/stable) are used in Github actions workflows to execute tests on real target.
+
+For such purpose, Github action runner is installed on a Debian machine running the workflows. The Debian machine uses `espressif/idf` container which provides a good environment to build Espressif projects in such context.
+
+When testing is executed, a dedicated mender-server instance is used. mender-server certificate to allow device and tests connecting to the server are provided. mender-server username and password are provided throw the Github Actions secrets.
+
+The Debian machine has a local configuration `sdkconfig.ci` file used to build the firmware which contains the following settings:
+
+```
+CONFIG_MENDER_SERVER_HOST="https://docker.mender.io"
+CONFIG_MENDER_SERVER_TENANT_TOKEN=""
+CONFIG_MBEDTLS_CUSTOM_CERTIFICATE_BUNDLE=y
+CONFIG_MBEDTLS_CUSTOM_CERTIFICATE_BUNDLE_PATH="../mender.der"
+CONFIG_EXAMPLE_WIFI_SSID="<ssid of local network>"
+CONFIG_EXAMPLE_WIFI_PSK="<psk of local network>"
+```
+
+The Debian machine has also a `config.env` file to provide board settings for esptool to flash target:
+
+```
+ESPTOOL_PORT=/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0002-if00-port0
+```
+
+Tests cover device registration, inventory, configuration, firmware update and decomissioning.
+
+Tests are executed for each pull-request opened on the repository. Results are reported in the pull-request.
+
+The workflows and test files can be reused for your own projects.
 
 
 ## ESP-IDF Extension help

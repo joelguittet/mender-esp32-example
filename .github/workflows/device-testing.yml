@@ -1,0 +1,317 @@
+# @file      device-testing.yml
+# @brief     Used to perform device testing using pytest
+#
+# Copyright joelguittet and mender-mcu-client contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: device-testing
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    types: [opened, synchronize, reopened]
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+# Define concurrency so that the jobs of the workflow are not mixed between
+# several executions in case it is launched again while one is still running
+concurrency:
+  group: device-testing
+  cancel-in-progress: false
+
+jobs:
+  device-testing:
+    name: Device testing
+    runs-on: self-hosted
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        # The version names here correspond to the versions of espressif/idf Docker image.
+        # See https://hub.docker.com/r/espressif/idf/tags and
+        # https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/tools/idf-docker-image.html
+        # for details.
+        idf_target: ["esp32"]
+        idf_ver: ["v5.4.4", "v5.5.6", "v6.0.3", "v6.1"]
+        include:
+          - idf_ver: "v5.4.4"
+            idf_major: "v5"
+          - idf_ver: "v5.5.6"
+            idf_major: "v5"
+          - idf_ver: "v6.0.3"
+            idf_major: "v6"
+          - idf_ver: "v6.1"
+            idf_major: "v6"
+    # pytest is executed inside espressif/idf container
+    # The container is executed with privileged option to have full access to the host
+    # The following are bounded in the container:
+    # - /dev: to allow access to the devices
+    # - config.env: contains board farm configuration as environment variables
+    # - sdkconfig.ci: contains configuration of the test bench such as Mender server and Wi-Fi settings
+    # - mender.crt/mender.der: mender-server certificate to allow device and tests connecting to the server
+    container:
+      image: espressif/idf:${{ matrix.idf_ver }}
+      volumes:
+        - /dev:/dev
+        - /home/testbench/mender-esp32-example/config.env:/__w/mender-esp32-example/mender-esp32-example/config.env
+        - /home/testbench/mender-esp32-example/sdkconfig.ci:/__w/mender-esp32-example/mender-esp32-example/sdkconfig.ci
+        - /home/testbench/mender-server/compose/certs/mender.crt:/__w/mender-esp32-example/mender-esp32-example/mender.crt
+        - /home/testbench/mender-server/compose/certs/mender.der:/__w/mender-esp32-example/mender-esp32-example/mender.der
+      options: -e IDF_TARGET=${{ matrix.idf_target }} -e IDF_MAJOR=${{ matrix.idf_major }} --privileged
+    # Permissions
+    # - contents: read, actions: read and checks: write are required to use dorny/test-reporter@v3
+    permissions:
+      contents: read
+      actions: read
+      checks: write
+
+    steps:
+      # Install miscellaneous tools
+      # kmod is used to load vhci_hcd module using modprobe
+      # linux-tools-generic is used to attach USB devices using usbip
+      # sshpass is used to connect to the proxmox-host controlling board power
+      - name: Install miscellaneous tools
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            kmod linux-tools-generic sshpass
+
+      # Install mender-artifact and mender-cli
+      # mender-artifact is used to generate artifact for firmware update
+      # mender-cli is used to connect to the troubleshoot terminal of the device
+      - name: Install mender-artifact and mender-cli
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            apt-transport-https ca-certificates curl gnupg jq
+          curl -fsSL --proto '=https' --proto-redir '=https' https://downloads.mender.io/repos/debian/gpg | tee /etc/apt/trusted.gpg.d/mender.asc
+          sed -i.bak -e "\,https://downloads.mender.io/repos/device-components,d" /etc/apt/sources.list
+          echo "deb [arch=$(dpkg --print-architecture)] https://downloads.mender.io/repos/device-components ubuntu/jammy/stable main" \ | tee /etc/apt/sources.list.d/mender.list
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            mender-artifact mender-cli
+
+      # Checkout mender-esp32-example
+      - name: Checkout mender-esp32-example
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          path: mender-esp32-example
+
+      # Setup Python
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+        env:
+          PIP_ROOT_USER_ACTION: ignore
+
+      # Setup ESP-IDF project
+      - name: Setup ESP-IDF project
+        run: |
+          cat /__w/mender-esp32-example/mender-esp32-example/config.env >> "$GITHUB_ENV"
+          . /opt/esp/idf/export.sh
+          echo "ESP_IDF_VERSION=${ESP_IDF_VERSION}" >> "$GITHUB_ENV"
+          echo "IDF_PYTHON_ENV_PATH=${IDF_PYTHON_ENV_PATH}" >> "$GITHUB_ENV"
+          echo "ESP_ROM_ELF_DIR=${ESP_ROM_ELF_DIR}" >> "$GITHUB_ENV"
+          echo "${PATH}" >> "$GITHUB_PATH"
+
+      # Install pytest
+      - name: Install pytest
+        run: |
+          pip install -U pytest pytest-dependency pytest-order pytest-embedded-idf pytest-embedded-serial-esp
+        env:
+          PIP_ROOT_USER_ACTION: ignore
+
+      # Build application v0.1.0 (default configuration)
+      - name: Build application v0.1.0 (default configuration)
+        working-directory: mender-esp32-example
+        run: |
+          idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.ci.$IDF_MAJOR;/__w/mender-esp32-example/mender-esp32-example/sdkconfig.ci" -B build-v0.1.0 build
+
+      # Build application v0.2.0 (for testing OTA update)
+      - name: Build application v0.2.0 (for testing OTA update)
+        working-directory: mender-esp32-example
+        run: |
+          cp VERSION.txt VERSION.txt-backup
+          echo "0.2.0" > VERSION.txt
+          idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.ci.$IDF_MAJOR;/__w/mender-esp32-example/mender-esp32-example/sdkconfig.ci" -B build-v0.2.0 build
+          mv VERSION.txt-backup VERSION.txt
+
+      # Switch on the device and connect over usbip
+      - name: Switch on the device and connect over usbip
+        working-directory: mender-esp32-example
+        run: |
+          python3 scripts/power.py on $BOARD_FARM_USB_HUB_VID_PID $BOARD_FARM_USB_BOARD_LOCATION
+          sleep 5
+          python3 scripts/usbip.py attach $BOARD_FARM_USB_BOARD_LOCATION
+          sleep 5
+        env:
+          BOARD_FARM_ADDRESS: ${{ secrets.BOARD_FARM_ADDRESS }}
+          BOARD_FARM_USERNAME: ${{ secrets.BOARD_FARM_USERNAME }}
+          BOARD_FARM_PASSWORD: ${{ secrets.BOARD_FARM_PASSWORD }}
+
+      # Erase flash (force recommissioning while testing different mender-tls configurations)
+      - name: Erase flash (force recommissioning while testing different mender-tls configurations)
+        working-directory: mender-esp32-example
+        run: |
+          idf.py erase-flash
+
+      # Execute tests using pytest
+      # The following environment variables are defined:
+      # - CI: inform pytest its is running in CI environment
+      # - PROJECT_NAME: project name
+      # - PROJECT_DIR: project directory
+      # - MENDER_SERVER_ADDRESS: mender-server address
+      # - MENDER_SERVER_USERNAME: mender-server username
+      # - MENDER_SERVER_PASSWORD: mender-server password
+      # - MENDER_SERVER_CA_CERT: mender-server certificate
+      - name: Execute tests
+        working-directory: mender-esp32-example
+        id: execute-tests
+        run: |
+          pytest --build-dir build-v0.1.0 --embedded-services esp,idf -s -v \
+            --log-level=INFO --log-format="%(asctime)s %(levelname)s %(message)s" --log-date-format="%Y-%m-%d %H:%M:%S" \
+            --junit-xml=pytest-${{ matrix.idf_target }}-${{ matrix.idf_ver }}.xml
+        env:
+          CI: 1
+          PROJECT_NAME: "mender-esp32-example"
+          PROJECT_DIR: "/__w/mender-esp32-example/mender-esp32-example/mender-esp32-example"
+          MENDER_SERVER_ADDRESS: ${{ secrets.MENDER_SERVER_ADDRESS }}
+          MENDER_SERVER_USERNAME: ${{ secrets.MENDER_SERVER_USERNAME }}
+          MENDER_SERVER_PASSWORD: ${{ secrets.MENDER_SERVER_PASSWORD }}
+          MENDER_SERVER_CA_CERT: "/__w/mender-esp32-example/mender-esp32-example/mender.crt"
+
+      # Disconnect and switch off the device
+      - name: Disconnect and switch off the device
+        if: ${{ always() }}
+        working-directory: mender-esp32-example
+        run: |
+          python3 scripts/usbip.py detach $BOARD_FARM_USB_BOARD_LOCATION
+          python3 scripts/power.py off $BOARD_FARM_USB_HUB_VID_PID $BOARD_FARM_USB_BOARD_LOCATION
+        env:
+          BOARD_FARM_ADDRESS: ${{ secrets.BOARD_FARM_ADDRESS }}
+          BOARD_FARM_USERNAME: ${{ secrets.BOARD_FARM_USERNAME }}
+          BOARD_FARM_PASSWORD: ${{ secrets.BOARD_FARM_PASSWORD }}
+
+      # Publish test results
+      - name: Publish test results
+        if: ${{ always() && steps.execute-tests.conclusion != 'skipped' && steps.execute-tests.conclusion != 'cancelled' }}
+        uses: dorny/test-reporter@v3
+        with:
+          working-directory: mender-esp32-example
+          name: 🧪 Pytest Test Report
+          path: pytest-${{ matrix.idf_target }}-${{ matrix.idf_ver }}.xml
+          reporter: java-junit
+          report-title: 🧪 Pytest Test Report
+          fail-on-error: false
+
+      # Upload test-results artifact
+      # This step is always executed, so that we can get logs even in case of failure during the execution of the tests
+      - name: Upload test-results artifact
+        if: ${{ always() && steps.execute-tests.conclusion != 'skipped' && steps.execute-tests.conclusion != 'cancelled' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.idf_target }}-${{ matrix.idf_ver }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            mender-esp32-example/pytest-${{ matrix.idf_target }}-${{ matrix.idf_ver }}.xml
+
+      # Upload test-binaries artifact
+      # This step is executed in case of failure during the execution of the tests, so that it is possible to investigate the issues
+      - name: Upload test-binaries artifact
+        if: ${{ always() && steps.execute-tests.conclusion == 'failure' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-binaries-${{ matrix.idf_target }}-${{ matrix.idf_ver }}
+          if-no-files-found: error
+          retention-days: 7
+          include-hidden-files: true
+          path: |
+            mender-esp32-example/sdkconfig
+            mender-esp32-example/build-*/mender-esp32-example.elf
+            mender-esp32-example/build-*/mender-esp32-example.map
+
+      # Cleanup dangling devices and artifacts on mender-server
+      - name: Cleanup dangling devices and artifacts on mender-server
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          # Device types
+          DEVICE_TYPES=(mender-esp32-example)
+          # Login to mender-server
+          TOKEN=$(curl -fsS -X POST "${{ secrets.MENDER_SERVER_ADDRESS }}/api/management/v1/useradm/auth/login" --cacert /__w/mender-esp32-example/mender-esp32-example/mender.crt -H "Content-Type: application/json" -H "Accept: application/jwt" -H "Authorization: Basic $(printf "%s" "${{ secrets.MENDER_SERVER_USERNAME }}:${{ secrets.MENDER_SERVER_PASSWORD }}" | base64)")
+          for device_type in "${DEVICE_TYPES[@]}"; do
+            # Abort all the active and pending deployments
+            curl -fsS "${{ secrets.MENDER_SERVER_ADDRESS }}/api/management/v2/deployments/deployments?status=pending" --cacert /__w/mender-esp32-example/mender-esp32-example/mender.crt -H "Authorization: Bearer $TOKEN" | jq -r ".[] | .id" | while read -r deployment_id; do if curl -fsS "${{ secrets.MENDER_SERVER_ADDRESS }}/api/management/v1/deployments/deployments/$deployment_id/devices/list" --cacert /__w/mender-esp32-example/mender-esp32-example/mender.crt -H "Authorization: Bearer $TOKEN" | jq -e --arg device_type "$device_type" "any(.[] | .device_type == $device_type)" > /dev/null; then echo "Abort deployment with id '$deployment_id' and status 'pending'"; curl -fsS -X PUT "${{ secrets.MENDER_SERVER_ADDRESS }}/api/management/v1/deployments/deployments/$deployment_id/status" --cacert /__w/mender-esp32-example/mender-esp32-example/mender.crt -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"status": "aborted"}'; fi; done
+            curl -fsS "${{ secrets.MENDER_SERVER_ADDRESS }}/api/management/v2/deployments/deployments?status=inprogress" --cacert /__w/mender-esp32-example/mender-esp32-example/mender.crt -H "Authorization: Bearer $TOKEN" | jq -r ".[] | .id" | while read -r deployment_id; do if curl -fsS "${{ secrets.MENDER_SERVER_ADDRESS }}/api/management/v1/deployments/deployments/$deployment_id/devices/list" --cacert /__w/mender-esp32-example/mender-esp32-example/mender.crt -H "Authorization: Bearer $TOKEN" | jq -e --arg device_type "$device_type" "any(.[] | .device_type == $device_type)" > /dev/null; then echo "Abort deployment with id '$deployment_id' and status 'inprogress'"; curl -fsS -X PUT "${{ secrets.MENDER_SERVER_ADDRESS }}/api/management/v1/deployments/deployments/$deployment_id/status" --cacert /__w/mender-esp32-example/mender-esp32-example/mender.crt -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"status": "aborted"}'; fi; done
+            # Remove artifacts
+            curl -fsS "${{ secrets.MENDER_SERVER_ADDRESS }}/api/management/v2/deployments/artifacts?device_type=${device_type}" --cacert /__w/mender-esp32-example/mender-esp32-example/mender.crt -H "Authorization: Bearer $TOKEN" | jq -r ".[] | .id" | while read id; do echo "Removing artifact for device type '$device_type' with id '$id'"; curl -fsS -X DELETE "${{ secrets.MENDER_SERVER_ADDRESS }}/api/management/v1/deployments/artifacts/$id" --cacert /__w/mender-esp32-example/mender-esp32-example/mender.crt -H "Authorization: Bearer $TOKEN"; done
+            # Remove devices
+            curl -fsS "${{ secrets.MENDER_SERVER_ADDRESS }}/api/management/v1/inventory/devices?inventory/device_type=${device_type}" --cacert /__w/mender-esp32-example/mender-esp32-example/mender.crt -H "Authorization: Bearer $TOKEN" | jq -r ".[] | .id" | while read id; do echo "Removing device type '$device_type' with id '$id'"; curl -fsS -X DELETE "${{ secrets.MENDER_SERVER_ADDRESS }}/api/management/v2/devauth/devices/$id" --cacert /__w/mender-esp32-example/mender-esp32-example/mender.crt -H "Authorization: Bearer $TOKEN"; done
+          done
+
+      # Cleanup test results
+      - name: Cleanup test results
+        if: ${{ always() }}
+        working-directory: mender-esp32-example
+        run: |
+          rm -rf pytest-${{ matrix.idf_target }}-${{ matrix.idf_ver }}.xml
+
+      # Cleanup ESP-IDF environment
+      - name: Cleanup ESP-IDF environment
+        if: ${{ always() }}
+        working-directory: mender-esp32-example
+        run: |
+          rm -rf build-*
+          rm -rf managed_components
+          rm -f sdkconfig
+
+  publish-test-results:
+    name: Publish test results
+    runs-on: ubuntu-24.04
+    if: ${{ always() && !contains(needs.device-testing.result, 'skipped') && !contains(needs.device-testing.result, 'cancelled') }}
+    needs: device-testing
+    # Permissions
+    # - contents: read, issues: read checks: write and pull-requests: write are required to use EnricoMi/publish-unit-test-result-action/linux@v2
+    permissions:
+      contents: read
+      issues: read
+      checks: write
+      pull-requests: write
+
+    steps:
+      # Download artifacts
+      # This step is used to retrieve test results so they can be used to publish report
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      # Verify Pytest reports are available
+      - name: Verify Pytest reports are available
+        run: |
+          compgen -G 'artifacts/test-results-*/pytest*.xml' > /dev/null || {
+            echo "::error::pytest*.xml not found"
+            exit 1
+          }
+
+      # Publish test results
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action/linux@v2
+        with:
+          files: artifacts/test-results-*/pytest*.xml

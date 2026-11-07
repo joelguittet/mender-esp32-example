@@ -645,10 +645,10 @@ app_main(void) {
 
     /* Compute artifact name */
     char artifact_name[128];
-    snprintf(artifact_name, sizeof(artifact_name), "%s-v%s", running_app_info.project_name, running_app_info.version);
+    snprintf(artifact_name, sizeof(artifact_name), "%s-v%s", CONFIG_EXAMPLE_ARTIFACT_NAME_PREFIX, running_app_info.version);
 
     /* Retrieve device type */
-    char *device_type = running_app_info.project_name;
+    char *device_type = CONFIG_EXAMPLE_DEVICE_TYPE;
 
     /* Initialize mender-client */
     mender_keystore_t         identity[]              = { { .name = "mac", .value = mac_address }, { .name = NULL, .value = NULL } };
